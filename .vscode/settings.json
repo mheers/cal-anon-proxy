@@ -1,0 +1,7 @@
+{
+    "go.testFlags": [
+        "-vet=off",
+        "-v"
+    ],
+    "go.testEnvFile": ".env"
+}
