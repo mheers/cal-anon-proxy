@@ -2,10 +2,15 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
+	hConfig "github.com/maddalax/htmgo/framework/config"
+	"github.com/maddalax/htmgo/framework/h"
+	"github.com/maddalax/htmgo/framework/service"
+	"github.com/mheers/cal-anon-proxy/__htmgo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,6 +43,29 @@ func main() {
 			updateEvents(proxy, calDavHandler)
 		}
 	}()
+
+	locator := service.NewLocator()
+	cfg := hConfig.Get()
+
+	h.Start(h.AppOpts{
+		ServiceLocator: locator,
+		LiveReload:     true,
+		Register: func(app *h.App) {
+			sub, err := fs.Sub(GetStaticAssets(), "assets/dist")
+
+			if err != nil {
+				panic(err)
+			}
+
+			http.FileServerFS(sub)
+
+			// change this in htmgo.yml (public_asset_path)
+			app.Router.Handle(fmt.Sprintf("%s/*", cfg.PublicAssetPath),
+				http.StripPrefix(cfg.PublicAssetPath, http.FileServerFS(sub)))
+
+			__htmgo.Register(app.Router)
+		},
+	})
 
 	s := &http.Server{
 		Addr:           ":8086",

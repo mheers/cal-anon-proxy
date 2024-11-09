@@ -1,4 +1,15 @@
+# Project exclude paths
 __debug_bin*
 .env
 ci/.env
 ci/dagger/
+/tmp/
+node_modules/
+dist/
+js/dist
+js/node_modules
+go.work
+go.work.sum
+.idea
+!framework/assets/dist
+__htmgo
