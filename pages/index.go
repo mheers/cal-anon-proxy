@@ -21,8 +21,7 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 			var calendar = new FullCalendar.Calendar(calendarEl, {
 			initialView: 'timeGridWeek',
 			events: {
-				// url: 'http://localhost:8086/caldav/',
-				url: '/caldav.ics',
+				url: '/caldav/',
 				format: 'ics',
 			},
 			headerToolbar: {

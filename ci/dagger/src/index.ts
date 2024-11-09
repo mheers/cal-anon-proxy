@@ -26,13 +26,15 @@ export class Ci {
   @func()
   async buildAndPushImage(src: Directory, registryToken: Secret): Promise<string> {
     const buildContainer = dag.container().from(buildImage)
-      .withDirectory("/src", src)
+      .withExec(["apk", "update"])
+      .withExec(["apk", "add", "git", "curl"])
+      .withDirectory("/src", src, { exclude: ["node_modules", "dist", "js/dist", "js/node_modules", "go.work", "go.work.sum", ".idea", "!framework/assets/dist", "__htmgo"] })
       .withWorkdir("/src")
-      .withExec(["go", "build", "-o", "/app", "."])
+      .withExec(["go", "run", "github.com/maddalax/htmgo/cli/htmgo@latest", "build"])
 
     const targetContainer = dag.container().from(baseImage)
-      .withFile("/app", buildContainer.file("/app"))
-      .withEntrypoint(["/app"])
+      .withFile("/app/dist/cal-anon-proxy", buildContainer.file("/app/dist/cal-anon-proxy"))
+      .withEntrypoint(["/app/dist/cal-anon-proxy"])
 
     const imageDigest = targetContainer
       .withRegistryAuth(targetImage, username, registryToken)

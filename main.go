@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	hConfig "github.com/maddalax/htmgo/framework/config"
 	"github.com/maddalax/htmgo/framework/h"
 	"github.com/maddalax/htmgo/framework/service"
@@ -29,11 +28,6 @@ func main() {
 		}
 		handler = a.middleware(calDavHandler)
 	}
-
-	r := mux.NewRouter()
-	r.Use(tracingMiddleware)
-
-	r.PathPrefix("/caldav/").Handler(handler)
 
 	go func() {
 		updateEvents(proxy, calDavHandler)
@@ -63,20 +57,11 @@ func main() {
 			app.Router.Handle(fmt.Sprintf("%s/*", cfg.PublicAssetPath),
 				http.StripPrefix(cfg.PublicAssetPath, http.FileServerFS(sub)))
 
+			app.Router.Handle("/caldav/", handler)
+
 			__htmgo.Register(app.Router)
 		},
 	})
-
-	s := &http.Server{
-		Addr:           ":8086",
-		Handler:        r,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-
-	fmt.Printf("Listening on %s\n", s.Addr)
-	logrus.Fatal(s.ListenAndServe())
 }
 
 func updateEvents(proxy *CalProxy, calDavHandler *CalDavHandler) {

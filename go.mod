@@ -6,7 +6,6 @@ require (
 	github.com/emersion/go-ical v0.0.0-20240127095438-fc1c9d8fb2b6
 	github.com/emersion/go-webdav v0.5.1-0.20240419143909-21f251fa1de2
 	github.com/go-chi/chi/v5 v5.1.0
-	github.com/gorilla/mux v1.8.1
 	github.com/maddalax/htmgo/framework v1.0.3-0.20241101111035-2c4ac8b2866d
 	github.com/sethvargo/go-envconfig v1.1.0
 	github.com/sirupsen/logrus v1.9.3
