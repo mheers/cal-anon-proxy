@@ -27,9 +27,11 @@ export class Ci {
   async buildAndPushImage(src: Directory, registryToken: Secret): Promise<string> {
     const buildContainer = dag.container().from(buildImage)
       .withExec(["apk", "update"])
-      .withExec(["apk", "add", "git", "curl"])
-      .withDirectory("/src", src, { exclude: ["node_modules", "dist", "js/dist", "js/node_modules", "go.work", "go.work.sum", ".idea", "!framework/assets/dist", "__htmgo"] })
+      .withExec(["apk", "add", "git", "curl", "wget"])
+      .withDirectory("/src", src, { include: ["go.mod", "go.sum"] })
       .withWorkdir("/src")
+      .withExec(["go", "mod", "download"])
+      .withDirectory("/src", src, { exclude: ["node_modules", "js/dist", "js/node_modules", "go.work", "go.work.sum", ".idea", "__htmgo"] })
       .withExec(["go", "run", "github.com/maddalax/htmgo/cli/htmgo@latest", "build"])
 
     const targetContainer = dag.container().from(baseImage)
