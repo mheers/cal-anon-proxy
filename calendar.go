@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav/caldav"
@@ -94,7 +93,7 @@ func (h *CalDavHandler) HTTPHandler() http.Handler {
 	return h.Handler
 }
 
-func (h *CalDavHandler) SetEvents(events []*CalendarEvent) {
+func (h *CalDavHandler) SetEvents(events []*caldav.CalendarObject) {
 	sessionsCal := caldav.Calendar{
 		Path:                  h.path,
 		SupportedComponentSet: []string{ical.CompEvent},
@@ -110,7 +109,7 @@ func (h *CalDavHandler) SetEvents(events []*CalendarEvent) {
 	cal.Children = []*ical.Component{}
 
 	for _, event := range events {
-		cal.Children = append(cal.Children, event.toICalEvent().Component)
+		cal.Children = append(cal.Children, event.Data.Children...)
 	}
 
 	object := caldav.CalendarObject{
@@ -133,73 +132,4 @@ func NewCalDavHandler(path string) *CalDavHandler {
 		},
 		path: path,
 	}
-}
-
-type CalendarEvent struct {
-	Props ical.Props
-}
-
-func (e *CalendarEvent) ID() string {
-	return e.Props.Get(ical.PropUID).Value
-}
-
-func (e *CalendarEvent) Summary() string {
-	return e.Props.Get(ical.PropSummary).Value
-}
-func (e *CalendarEvent) Location() string {
-	return e.Props.Get(ical.PropLocation).Value
-}
-
-func (e *CalendarEvent) Description() string {
-	return e.Props.Get(ical.PropDescription).Value
-}
-
-func (e *CalendarEvent) RRule() string {
-	return e.Props.Get(ical.PropRecurrenceRule).Value
-}
-
-func (e *CalendarEvent) StartAt() (time.Time, error) {
-	startAt, err := dateTimeOfPropName(e.Props, "DTSTART")
-	if err != nil {
-		return time.Time{}, err
-	}
-	return startAt, nil
-}
-
-func (e *CalendarEvent) EndAt() (time.Time, error) {
-	endAt, err := dateTimeOfPropName(e.Props, "DTEND")
-	if err != nil {
-		return time.Time{}, err
-	}
-	return endAt, nil
-}
-func (e *CalendarEvent) CreatedAt() (time.Time, error) {
-	createdAt, err := dateTimeOfPropName(e.Props, "CREATED")
-	if err != nil {
-		return time.Time{}, err
-	}
-	return createdAt, nil
-}
-
-func (e *CalendarEvent) toICalEvent() *ical.Event {
-	event := ical.NewEvent()
-	event.Props = e.Props
-	return event
-}
-
-func dateTimeOfPropName(props ical.Props, propName string) (time.Time, error) {
-	if props.Get(propName) != nil {
-		prop := props.Get(propName)
-		tzid := prop.Params.Get(ical.PropTimezoneID)
-		if tzid != "" {
-			tzid = translateTZ(tzid)
-			prop.Params.Set(ical.PropTimezoneID, tzid)
-		}
-		dt, err := prop.DateTime(time.UTC)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return dt, nil
-	}
-	return time.Time{}, nil
 }

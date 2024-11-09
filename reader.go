@@ -11,8 +11,8 @@ import (
 	"github.com/emersion/go-webdav/caldav"
 )
 
-func (p *CalProxy) downloadAll() ([]*CalendarEvent, error) {
-	events := []*CalendarEvent{}
+func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
+	events := []*caldav.CalendarObject{}
 	for _, src := range p.config.Srcs() {
 		srcEvents, err := p.download(src)
 		if err != nil {
@@ -23,7 +23,7 @@ func (p *CalProxy) downloadAll() ([]*CalendarEvent, error) {
 	return events, nil
 }
 
-func (p *CalProxy) download(src *Src) ([]*CalendarEvent, error) {
+func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 	httpClient := &http.Client{}
 	caldavClient, err := caldav.NewClient(webdav.HTTPClientWithBasicAuth(httpClient, src.Username, src.Password), src.URL)
 	if err != nil {
@@ -78,33 +78,21 @@ func (p *CalProxy) download(src *Src) ([]*CalendarEvent, error) {
 		return nil, err
 	}
 
-	calEvents := []*CalendarEvent{}
+	calEvents := []*caldav.CalendarObject{}
 
 	for _, eventFromQuery := range queryResult {
-
-		vevent := &ical.Component{}
-		// vtimezone := &ical.Component{}
-		for _, child := range eventFromQuery.Data.Children {
-			if child.Name == "VEVENT" {
-				vevent = child
-			}
-			// if child.Name == "VTIMEZONE" {
-			// 	vtimezone = child
-			// }
-		}
-
-		calEvent := &CalendarEvent{
-			Props: vevent.Props,
-		}
-
+		event := &eventFromQuery
 		if src.Anon {
-			calEvent.Props.SetText(ical.PropSummary, "unavailable")
-			calEvent.Props.SetText(ical.PropLocation, "")
-			calEvent.Props.SetText(ical.PropDescription, "")
-			calEvent.Props.SetText(ical.PropAttendee, "")
+			for x, vevent := range event.Data.Children {
+				if vevent.Name == "VEVENT" {
+					event.Data.Children[x].Props.SetText(ical.PropSummary, "unavailable")
+					event.Data.Children[x].Props.SetText(ical.PropDescription, "")
+					event.Data.Children[x].Props.SetText(ical.PropLocation, "")
+					event.Data.Children[x].Props.SetText(ical.PropAttendee, "")
+				}
+			}
 		}
-
-		calEvents = append(calEvents, calEvent)
+		calEvents = append(calEvents, event)
 	}
 
 	return calEvents, nil
