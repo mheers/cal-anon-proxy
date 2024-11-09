@@ -61,6 +61,7 @@ func (p *CalProxy) download(src *Src) ([]*CalendarEvent, error) {
 					"DTSTART",
 					"DTEND",
 					"DURATION",
+					"RRULE",
 				},
 			}},
 		},
@@ -92,64 +93,19 @@ func (p *CalProxy) download(src *Src) ([]*CalendarEvent, error) {
 			// }
 		}
 
-		calEvent := &CalendarEvent{}
-		if vevent.Props.Get("UID") != nil {
-			calEvent.ID = vevent.Props.Get("UID").Value
-		}
-		if vevent.Props.Get("SUMMARY") != nil {
-			calEvent.Summary = vevent.Props.Get("SUMMARY").Value
-		}
-		if vevent.Props.Get("LOCATION") != nil {
-			calEvent.Location = vevent.Props.Get("LOCATION").Value
-		}
-
-		startAt, err := dateTimeOfPropName(vevent, "DTSTART")
-		if err != nil {
-			return nil, err
-		}
-		calEvent.StartAt = startAt
-
-		endAt, err := dateTimeOfPropName(vevent, "DTEND")
-		if err != nil {
-			return nil, err
-		}
-		calEvent.EndAt = endAt
-
-		createdAt, err := dateTimeOfPropName(vevent, "CREATED")
-		if err != nil {
-			return nil, err
-		}
-		calEvent.CreatedAt = createdAt
-
-		if vevent.Props.Get("DESCRIPTION") != nil {
-			calEvent.Description = vevent.Props.Get("DESCRIPTION").Value
+		calEvent := &CalendarEvent{
+			Props: vevent.Props,
 		}
 
 		if src.Anon {
-			calEvent.Location = ""
-			calEvent.Description = ""
-			calEvent.Summary = "unavailable"
+			calEvent.Props.SetText(ical.PropSummary, "unavailable")
+			calEvent.Props.SetText(ical.PropLocation, "")
+			calEvent.Props.SetText(ical.PropDescription, "")
+			calEvent.Props.SetText(ical.PropAttendee, "")
 		}
 
 		calEvents = append(calEvents, calEvent)
 	}
 
 	return calEvents, nil
-}
-
-func dateTimeOfPropName(vevent *ical.Component, propName string) (time.Time, error) {
-	if vevent.Props.Get(propName) != nil {
-		prop := vevent.Props.Get(propName)
-		tzid := prop.Params.Get(ical.PropTimezoneID)
-		if tzid != "" {
-			tzid = translateTZ(tzid)
-			prop.Params.Set(ical.PropTimezoneID, tzid)
-		}
-		dt, err := prop.DateTime(time.UTC)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return dt, nil
-	}
-	return time.Time{}, nil
 }

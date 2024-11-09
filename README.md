@@ -33,3 +33,4 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
 - [ ] when a source event is deleted, delete the event from the proxy (thunderbird still shows the event)
 - [ ] frontend with calendar view -> simpler: use nextcloud to subscribe to the proxy and publish this calendar again (as ical AND frontend)
 - [x] ci/cd pipeline
+- [x] fix recurring events (only first event is shown)

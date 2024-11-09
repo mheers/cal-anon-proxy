@@ -136,23 +136,70 @@ func NewCalDavHandler(path string) *CalDavHandler {
 }
 
 type CalendarEvent struct {
-	ID          string
-	CreatedAt   time.Time
-	StartAt     time.Time
-	EndAt       time.Time
-	Summary     string
-	Location    string
-	Description string
+	Props ical.Props
+}
+
+func (e *CalendarEvent) ID() string {
+	return e.Props.Get(ical.PropUID).Value
+}
+
+func (e *CalendarEvent) Summary() string {
+	return e.Props.Get(ical.PropSummary).Value
+}
+func (e *CalendarEvent) Location() string {
+	return e.Props.Get(ical.PropLocation).Value
+}
+
+func (e *CalendarEvent) Description() string {
+	return e.Props.Get(ical.PropDescription).Value
+}
+
+func (e *CalendarEvent) RRule() string {
+	return e.Props.Get(ical.PropRecurrenceRule).Value
+}
+
+func (e *CalendarEvent) StartAt() (time.Time, error) {
+	startAt, err := dateTimeOfPropName(e.Props, "DTSTART")
+	if err != nil {
+		return time.Time{}, err
+	}
+	return startAt, nil
+}
+
+func (e *CalendarEvent) EndAt() (time.Time, error) {
+	endAt, err := dateTimeOfPropName(e.Props, "DTEND")
+	if err != nil {
+		return time.Time{}, err
+	}
+	return endAt, nil
+}
+func (e *CalendarEvent) CreatedAt() (time.Time, error) {
+	createdAt, err := dateTimeOfPropName(e.Props, "CREATED")
+	if err != nil {
+		return time.Time{}, err
+	}
+	return createdAt, nil
 }
 
 func (e *CalendarEvent) toICalEvent() *ical.Event {
 	event := ical.NewEvent()
-	event.Props.SetText(ical.PropUID, e.ID)
-	event.Props.SetDateTime(ical.PropDateTimeStamp, e.CreatedAt)
-	event.Props.SetDateTime(ical.PropDateTimeStart, e.StartAt)
-	event.Props.SetDateTime(ical.PropDateTimeEnd, e.EndAt)
-	event.Props.SetText(ical.PropSummary, e.Summary)
-	event.Props.SetText(ical.PropLocation, e.Location)
-	event.Props.SetText(ical.PropDescription, e.Description)
+	event.Props = e.Props
 	return event
+}
+
+func dateTimeOfPropName(props ical.Props, propName string) (time.Time, error) {
+	if props.Get(propName) != nil {
+		prop := props.Get(propName)
+		tzid := prop.Params.Get(ical.PropTimezoneID)
+		if tzid != "" {
+			tzid = translateTZ(tzid)
+			prop.Params.Set(ical.PropTimezoneID, tzid)
+		}
+		dt, err := prop.DateTime(time.UTC)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return dt, nil
+	}
+	return time.Time{}, nil
 }

@@ -1,5 +1,9 @@
 package main
 
+import (
+	_ "time/tzdata"
+)
+
 func translateTZ(tzid string) string {
 	switch tzid {
 	case "W. Europe Standard Time":
