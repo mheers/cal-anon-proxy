@@ -27,16 +27,19 @@ export class Ci {
   async buildAndPushImage(src: Directory, registryToken: Secret): Promise<string> {
     const buildContainer = dag.container().from(buildImage)
       .withExec(["apk", "update"])
-      .withExec(["apk", "add", "git", "curl", "wget"])
+      .withExec(["apk", "add", "git", "wget"])
       .withDirectory("/src", src, { include: ["go.mod", "go.sum"] })
       .withWorkdir("/src")
       .withExec(["go", "mod", "download"])
       .withDirectory("/src", src, { exclude: ["node_modules", "js/dist", "js/node_modules", "go.work", "go.work.sum", ".idea", "__htmgo"] })
+      .withExec(["mkdir", "-p", "/src/__htmgo"])
+      .withExec(["wget", "-q", "-O", "/src/__htmgo/tailwind", "https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64"])
+      .withExec(["chmod", "+x", "/src/__htmgo/tailwind"])
       .withExec(["go", "run", "github.com/maddalax/htmgo/cli/htmgo@latest", "build"])
 
     const targetContainer = dag.container().from(baseImage)
-      .withFile("/app/dist/cal-anon-proxy", buildContainer.file("/app/dist/cal-anon-proxy"))
-      .withEntrypoint(["/app/dist/cal-anon-proxy"])
+      .withFile("/src/dist/cal-anon-proxy", buildContainer.file("/src/dist/cal-anon-proxy"))
+      .withEntrypoint(["/src/dist/cal-anon-proxy"])
 
     const imageDigest = targetContainer
       .withRegistryAuth(targetImage, username, registryToken)
