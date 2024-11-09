@@ -31,6 +31,9 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
 - [x] add optional public authentication
 - [x] auto refresh source calendars
 - [ ] when a source event is deleted, delete the event from the proxy (thunderbird still shows the event)
-- [ ] frontend with calendar view -> simpler: use nextcloud to subscribe to the proxy and publish this calendar again (as ical AND frontend)
+- [ ] frontend with calendar view 
+    - [x] fullcalendar
+    - [ ] htmgo
+    - [ ] default local timezone
 - [x] ci/cd pipeline
 - [x] fix recurring events (only first event is shown)

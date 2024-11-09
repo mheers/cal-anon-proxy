@@ -45,7 +45,7 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 
 	// start of current week
 	start := time.Now().AddDate(0, 0, -int(time.Now().Weekday()))
-	end := start.AddDate(0, 0, 7*4) // 4 weeks
+	end := start.AddDate(0, 0, 7*6) // 6 weeks
 
 	// print start date
 	fmt.Printf("Looking for events from %s to %s\n", start.Format(time.RFC3339), end.Format(time.RFC3339))
