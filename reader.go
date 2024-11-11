@@ -123,9 +123,9 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 					"X-MOZ-GENERATION",
 				}
 
-				// for _, prop := range cleanOutProps {
-				// 	event.Data.Children[x].Props.Del(prop)
-				// }
+				for _, prop := range cleanOutProps {
+					event.Data.Children[x].Props.Del(prop)
+				}
 
 				if src.Anon {
 					event.Data.Children[x].Props.SetText(ical.PropSummary, "unavailable")
@@ -145,55 +145,34 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 					event.Data.Children[x].Props.SetText(ical.PropSummary, newSummary)
 				}
 
+				tz, err := time.LoadLocation("UTC")
+				if err != nil {
+					return nil, err
+				}
+				event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz.String())
+
 				// set timezone to UTC for start
-				startTzID := event.Data.Children[x].Props.Get(ical.PropDateTimeStart).Params.Get(ical.PropTimezoneID)
-				if startTzID != "" {
-					tz := translateTZ(startTzID)
-					event.Data.Children[x].Props.Get(ical.PropDateTimeStart).Params.Set(ical.PropTimezoneID, tz)
-					event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz)
-
-					utc, err := time.LoadLocation("UTC")
-					if err != nil {
-						return nil, err
-					}
-
-					startAt, err := event.Data.Children[x].Props.Get(ical.PropDateTimeStart).DateTime(utc)
-					if err != nil {
-						return nil, err
-					}
-					event.Data.Children[x].Props.Get(ical.PropDateTimeStart).Params.Set(ical.PropTimezoneID, "UTC")
-					event.Data.Children[x].Props.SetText(ical.PropTimezoneName, "UTC")
-					event.Data.Children[x].Props.SetDateTime(ical.PropDateTimeStart, startAt.UTC())
+				if err := toTZ(event, x, tz, ical.PropDateTimeStart); err != nil {
+					return nil, err
 				}
 
 				// set timezone to UTC for end
-				endTzID := event.Data.Children[x].Props.Get(ical.PropDateTimeEnd).Params.Get(ical.PropTimezoneID)
-				if endTzID != "" {
-					tz := translateTZ(endTzID)
-					event.Data.Children[x].Props.Get(ical.PropDateTimeEnd).Params.Set(ical.PropTimezoneID, tz)
-					event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz)
+				if err := toTZ(event, x, tz, ical.PropDateTimeEnd); err != nil {
+					return nil, err
+				}
 
-					utc, err := time.LoadLocation("UTC")
-					if err != nil {
-						return nil, err
-					}
-
-					endAt, err := event.Data.Children[x].Props.Get(ical.PropDateTimeEnd).DateTime(utc)
-					if err != nil {
-						return nil, err
-					}
-					event.Data.Children[x].Props.Get(ical.PropDateTimeEnd).Params.Set(ical.PropTimezoneID, "UTC")
-					event.Data.Children[x].Props.SetText(ical.PropTimezoneName, "UTC")
-					event.Data.Children[x].Props.SetDateTime(ical.PropDateTimeEnd, endAt.UTC())
+				// set timezone to UTC for dtstamp
+				if err := toTZ(event, x, tz, ical.PropDateTimeStamp); err != nil {
+					return nil, err
 				}
 			}
 			if vevent.Name == "VTIMEZONE" {
-				// tzid := event.Data.Children[x].Props.Get(ical.PropTimezoneID)
-				// if tzid != nil {
-				// 	tz := translateTZ(tzid.Value)
-				// 	event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz)
-				// }
-				// event.Data.Children[x].Props.SetText(ical.PropTimezoneID, "UTC")
+				tzid := event.Data.Children[x].Props.Get(ical.PropTimezoneID)
+				if tzid != nil {
+					tz := translateTZ(tzid.Value)
+					event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz)
+				}
+				event.Data.Children[x].Props.SetText(ical.PropTimezoneID, "UTC")
 			}
 		}
 
@@ -232,4 +211,22 @@ func contains(arr []string, s string) bool {
 		}
 	}
 	return false
+}
+
+func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName string) error {
+	tzID := event.Data.Children[x].Props.Get(propName).Params.Get(ical.PropTimezoneID)
+	if tzID != "" {
+		tz := translateTZ(tzID)
+		event.Data.Children[x].Props.Get(propName).Params.Set(ical.PropTimezoneID, tz)
+		event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz)
+	}
+
+	dateTime, err := event.Data.Children[x].Props.Get(propName).DateTime(tz)
+	if err != nil {
+		return err
+	}
+	event.Data.Children[x].Props.Get(propName).Params.Set(ical.PropTimezoneID, tz.String())
+	event.Data.Children[x].Props.SetDateTime(propName, dateTime.UTC())
+
+	return nil
 }

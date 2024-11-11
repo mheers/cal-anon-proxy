@@ -33,9 +33,9 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
 - [ ] when a source event is deleted, delete the event from the proxy (thunderbird still shows the event)
 - [ ] frontend with calendar view 
     - [x] fullcalendar
-    - [ ] htmgo
+    - [x] htmgo
     - [ ] default local timezone
-    - [ ] hide weekends
+    - [x] hide weekends
     - [ ] show only working hours +/- 2 hours
 - [x] ci/cd pipeline
 - [x] fix recurring events (only first event is shown)

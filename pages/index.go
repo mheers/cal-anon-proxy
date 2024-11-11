@@ -44,7 +44,9 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 					initialView: 'timeGridWeek',
 					editable: true,
     				selectable: true,
+					hiddenDays: [0, 6],
 					events: {
+						// url: '/public/cal.ics',
 						url: '/caldav/',
 						format: 'ics',
 					},
