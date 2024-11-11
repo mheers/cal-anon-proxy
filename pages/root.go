@@ -6,10 +6,9 @@ import (
 )
 
 func RootPage(children ...h.Ren) *h.Page {
-	title := "htmgo template"
-	description := "an example of the htmgo template"
-	author := "htmgo"
-	url := "https://htmgo.dev"
+	title := "Public Calendar"
+	description := "a public calendar"
+	author := "Marcel Heers"
 
 	return h.NewPage(
 		h.Html(
@@ -28,8 +27,6 @@ func RootPage(children ...h.Ren) *h.Page {
 				h.Meta("author", author),
 				h.Meta("description", description),
 				h.Meta("og:title", title),
-				h.Meta("og:url", url),
-				h.Link("canonical", url),
 				h.Meta("og:description", description),
 				h.Link(assets.MainCss, "stylesheet"),
 				h.Script(assets.HtmgoJs),
