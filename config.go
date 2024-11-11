@@ -25,6 +25,11 @@ type Config struct {
 	Src3Username string `env:"SRC_3_USERNAME"`
 	Src3Password string `env:"SRC_3_PASSWORD"`
 
+	Src4URL      string `env:"SRC_4_URL"`
+	Src4Anon     bool   `env:"SRC_4_ANON"`
+	Src4Username string `env:"SRC_4_USERNAME"`
+	Src4Password string `env:"SRC_4_PASSWORD"`
+
 	DstAuthEnabled  bool   `env:"DST_AUTH_ENABLED"`
 	DstUsername     string `env:"DST_USERNAME"`
 	DstPassword     string `env:"DST_PASSWORD"`
@@ -65,6 +70,15 @@ func (c *Config) Srcs() []*Src {
 			Anon:     c.Src3Anon,
 			Username: c.Src3Username,
 			Password: c.Src3Password,
+		})
+	}
+
+	if c.Src4URL != "" {
+		srcs = append(srcs, &Src{
+			URL:      c.Src4URL,
+			Anon:     c.Src4Anon,
+			Username: c.Src4Username,
+			Password: c.Src4Password,
 		})
 	}
 
