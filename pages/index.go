@@ -45,6 +45,13 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 					editable: true,
     				selectable: true,
 					hiddenDays: [0, 6],
+					slotMinTime: '06:00:00',     // Start time for week grid
+					slotMaxTime: '18:00:00',     // End time for week grid
+					slotLabelFormat: {           // Set 24-hour format
+						hour: '2-digit',
+						minute: '2-digit',
+						hour12: false            // 24-hour format
+					},
 					events: {
 						// url: '/public/cal.ics',
 						url: '/caldav/',
@@ -60,7 +67,7 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 							loadingEl.style.display = 'none'; // hide
 						}
 					},
-					eventTimeFormat: { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' },
+					eventTimeFormat: { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', hour12: false },
 				});
 				calendar.render();
 

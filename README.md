@@ -36,7 +36,7 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
     - [x] htmgo
     - [ ] default local timezone
     - [x] hide weekends
-    - [ ] show only working hours +/- 2 hours
+    - [x] show only working hours +/- 2 hours
 - [x] ci/cd pipeline
 - [x] fix recurring events (only first event is shown)
 - [ ] compact overlapping events
