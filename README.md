@@ -40,3 +40,5 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
 - [x] ci/cd pipeline
 - [x] fix recurring events (only first event is shown)
 - [ ] compact overlapping events
+- [ ] handle "EXDATE"s
+- [ ] set UTC timezone for **all** events

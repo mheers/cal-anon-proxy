@@ -13,3 +13,4 @@ go.work.sum
 .idea
 !framework/assets/dist
 __htmgo
+events.json

@@ -96,11 +96,42 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 
 		for x, vevent := range event.Data.Children {
 			if vevent.Name == "VEVENT" {
+
+				cleanOutProps := []string{
+					ical.PropDescription,
+					ical.PropLocation,
+					ical.PropAttendee,
+					ical.PropOrganizer,
+					ical.PropPriority,
+					"X-MICROSOFT-CDO-ALLDAYEVENT",
+					"X-MICROSOFT-CDO-APPT-SEQUENCE",
+					"X-MICROSOFT-CDO-BUSYSTATUS",
+					"X-MICROSOFT-CDO-IMPORTANCE",
+					"X-MICROSOFT-CDO-INSTTYPE",
+					"X-MICROSOFT-CDO-INTENDEDSTATUS",
+					"X-MICROSOFT-CDO-OWNERAPPTID",
+					"X-MICROSOFT-DISALLOW-COUNTER",
+					"X-MICROSOFT-DONOTFORWARDMEETING",
+					"X-MICROSOFT-ISRESPONSEREQUESTED",
+					"X-MICROSOFT-LOCATIONS",
+					"X-MICROSOFT-REQUESTEDATTENDANCEMODE",
+					"X-MOZ-INVITED-ATTENDEE",
+					"X-MOZ-RECEIVED-DTSTAMP",
+					"X-MOZ-RECEIVED-SEQUENCE",
+					"X-MICROSOFT-LOCATIONDISPLAYNAME",
+					"X-MICROSOFT-LOCATIONSOURCE",
+					"X-MOZ-GENERATION",
+				}
+
+				// for _, prop := range cleanOutProps {
+				// 	event.Data.Children[x].Props.Del(prop)
+				// }
+
 				if src.Anon {
 					event.Data.Children[x].Props.SetText(ical.PropSummary, "unavailable")
-					event.Data.Children[x].Props.SetText(ical.PropDescription, "")
-					event.Data.Children[x].Props.SetText(ical.PropLocation, "")
-					event.Data.Children[x].Props.SetText(ical.PropAttendee, "")
+					for _, prop := range cleanOutProps {
+						event.Data.Children[x].Props.SetText(prop, "")
+					}
 				}
 
 				s := event.Data.Children[x].Props.Get(ical.PropSummary)

@@ -7,3 +7,4 @@ node_modules
 .idea
 __htmgo
 dist
+events.json
