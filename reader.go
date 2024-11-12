@@ -9,6 +9,7 @@ import (
 	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav"
 	"github.com/emersion/go-webdav/caldav"
+	tzLib "github.com/mheers/go-tz"
 )
 
 func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
@@ -94,6 +95,11 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 
 		renameEvents := map[string]string{}
 
+		tz, err := time.LoadLocation("Europe/London")
+		if err != nil {
+			return nil, err
+		}
+
 		for x, vevent := range event.Data.Children {
 			if vevent.Name == "VEVENT" {
 
@@ -145,45 +151,42 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 					event.Data.Children[x].Props.SetText(ical.PropSummary, newSummary)
 				}
 
-				tz, err := time.LoadLocation("UTC")
-				if err != nil {
-					return nil, err
-				}
 				event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz.String())
+				event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz.String())
 
-				// set timezone to UTC for start
+				// set timezone for start
 				if err := toTZ(event, x, tz, ical.PropDateTimeStart); err != nil {
 					return nil, err
 				}
 
-				// set timezone to UTC for end
+				// set timezone for end
 				if err := toTZ(event, x, tz, ical.PropDateTimeEnd); err != nil {
 					return nil, err
 				}
 
-				// set timezone to UTC for dtstamp
+				// set timezone for dtstamp
 				if err := toTZ(event, x, tz, ical.PropDateTimeStamp); err != nil {
 					return nil, err
 				}
 			}
-			if vevent.Name == "VTIMEZONE" {
-				tzid := event.Data.Children[x].Props.Get(ical.PropTimezoneID)
-				if tzid != nil {
-					tz := translateTZ(tzid.Value)
-					event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz)
-				}
-				event.Data.Children[x].Props.SetText(ical.PropTimezoneID, "UTC")
-			}
+			// if vevent.Name == "VTIMEZONE" {
+			// 	tzid := event.Data.Children[x].Props.Get(ical.PropTimezoneID)
+			// 	if tzid != nil {
+			// 		tz := translateTZ(tzid.Value)
+			// 		event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz)
+			// 	}
+			// 	event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz.String())
+			// }
 		}
 
 		// remove VTIMEZONE
-		// children := []*ical.Component{}
-		// for _, child := range event.Data.Children {
-		// 	if child.Name != "VTIMEZONE" {
-		// 		children = append(children, child)
-		// 	}
-		// }
-		// event.Data.Children = children
+		children := []*ical.Component{}
+		for _, child := range event.Data.Children {
+			if child.Name != "VTIMEZONE" {
+				children = append(children, child)
+			}
+		}
+		event.Data.Children = children
 
 		calEvents = append(calEvents, event)
 	}
@@ -216,9 +219,8 @@ func contains(arr []string, s string) bool {
 func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName string) error {
 	tzID := event.Data.Children[x].Props.Get(propName).Params.Get(ical.PropTimezoneID)
 	if tzID != "" {
-		tz := translateTZ(tzID)
+		tz := tzLib.TranslateMSTimezoneToIANA(tzID)
 		event.Data.Children[x].Props.Get(propName).Params.Set(ical.PropTimezoneID, tz)
-		event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz)
 	}
 
 	dateTime, err := event.Data.Children[x].Props.Get(propName).DateTime(tz)
@@ -226,7 +228,7 @@ func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName strin
 		return err
 	}
 	event.Data.Children[x].Props.Get(propName).Params.Set(ical.PropTimezoneID, tz.String())
-	event.Data.Children[x].Props.SetDateTime(propName, dateTime.UTC())
+	event.Data.Children[x].Props.SetDateTime(propName, dateTime.In(tz))
 
 	return nil
 }

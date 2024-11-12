@@ -34,11 +34,11 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
 - [ ] frontend with calendar view 
     - [x] fullcalendar
     - [x] htmgo
-    - [ ] default local timezone
+    - [x] default local timezone
     - [x] hide weekends
     - [x] show only working hours +/- 2 hours
 - [x] ci/cd pipeline
 - [x] fix recurring events (only first event is shown)
 - [ ] compact overlapping events
 - [ ] handle "EXDATE"s
-- [ ] set UTC timezone for **all** events
+- [x] set UTC timezone for **all** events

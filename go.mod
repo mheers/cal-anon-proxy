@@ -1,12 +1,13 @@
 module github.com/mheers/cal-anon-proxy
 
-go 1.23.1
+go 1.23.2
 
 require (
 	github.com/emersion/go-ical v0.0.0-20240127095438-fc1c9d8fb2b6
 	github.com/emersion/go-webdav v0.5.1-0.20240419143909-21f251fa1de2
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/maddalax/htmgo/framework v1.0.3-0.20241101111035-2c4ac8b2866d
+	github.com/mheers/go-tz v0.0.0-20241112103500-ccc6ab0ede86
 	github.com/sethvargo/go-envconfig v1.1.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0

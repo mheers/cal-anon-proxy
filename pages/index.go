@@ -37,9 +37,30 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 			var initialTimeZone = 'local';
 			var timeZoneSelectorEl = document.getElementById('time-zone-selector');
 			var loadingEl = document.getElementById('loading');
+
+			const eventDataTransform = (eventData) => {
+			// Extract relevant properties from the event data
+			const { title, url, extendedProps, start, end } = eventData;
+
+			// Convert start and end dates to UTC
+			const startUtc = new Date(start + 'Z').toISOString();
+			const endUtc = new Date(end + 'Z').toISOString();
+
+			return {
+				title,
+				url,
+				extendedProps,
+				start: startUtc,
+				end: endUtc,
+				allDay: false,
+				timezone: 'UTC'
+			};
+			};
+
 			document.addEventListener('DOMContentLoaded', function() {
 				var calendarEl = document.getElementById('calendar');
 				var calendar = new FullCalendar.Calendar(calendarEl, {
+					eventDataTransform: eventDataTransform,
 					timeZone: initialTimeZone,
 					initialView: 'timeGridWeek',
 					editable: true,
