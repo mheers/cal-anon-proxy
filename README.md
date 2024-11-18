@@ -31,7 +31,7 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
 - [x] add optional public authentication
 - [x] auto refresh source calendars
 - [ ] when a source event is deleted, delete the event from the proxy (thunderbird still shows the event)
-- [ ] frontend with calendar view 
+- [x] frontend with calendar view
     - [x] fullcalendar
     - [x] htmgo
     - [x] default local timezone
