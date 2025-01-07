@@ -154,6 +154,11 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 				event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz.String())
 				event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz.String())
 
+				// harmonize DURATION and DTEND
+				if err := harmonizeDurationAndEnd(event, x); err != nil {
+					return nil, err
+				}
+
 				// set timezone for start
 				if err := toTZ(event, x, tz, ical.PropDateTimeStart); err != nil {
 					return nil, err
@@ -217,7 +222,12 @@ func contains(arr []string, s string) bool {
 }
 
 func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName string) error {
-	tzID := event.Data.Children[x].Props.Get(propName).Params.Get(ical.PropTimezoneID)
+	eventProps := event.Data.Children[x].Props
+	prop := eventProps.Get(propName)
+	if prop == nil {
+		return fmt.Errorf("property %s not found for event %s", propName, summaryOfEvent(event))
+	}
+	tzID := prop.Params.Get(ical.PropTimezoneID)
 	if tzID != "" {
 		tz := tzLib.TranslateMSTimezoneToIANA(tzID)
 		event.Data.Children[x].Props.Get(propName).Params.Set(ical.PropTimezoneID, tz)
@@ -229,6 +239,50 @@ func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName strin
 	}
 	event.Data.Children[x].Props.Get(propName).Params.Set(ical.PropTimezoneID, tz.String())
 	event.Data.Children[x].Props.SetDateTime(propName, dateTime.In(tz))
+
+	return nil
+}
+
+func harmonizeDurationAndEnd(event *caldav.CalendarObject, x int) error {
+	eventProps := event.Data.Children[x].Props
+	end := eventProps.Get(ical.PropDateTimeEnd)
+	if end != nil {
+		return nil
+	}
+
+	start := eventProps.Get(ical.PropDateTimeStart)
+	if start == nil {
+		return fmt.Errorf("start not found for event %s", summaryOfEvent(event))
+	}
+
+	duration := eventProps.Get(ical.PropDuration)
+	if duration == nil {
+		return fmt.Errorf("duration not found for event %s", summaryOfEvent(event))
+	}
+	if duration.Value == "" {
+		return fmt.Errorf("duration not found for event %s", summaryOfEvent(event))
+	}
+
+	startTime, err := start.DateTime(time.UTC)
+	if err != nil {
+		return err
+	}
+
+	endTime := startTime
+
+	durationTime, err := duration.Duration()
+	if err != nil {
+		return err
+	}
+
+	if durationTime == 0 {
+		return nil
+	}
+
+	if endTime.Sub(endTime.Add(durationTime)) != 0 {
+		event.Data.Children[x].Props.SetDateTime(ical.PropDateTimeEnd, endTime.Add(durationTime))
+		event.Data.Children[x].Props.Del(ical.PropDuration)
+	}
 
 	return nil
 }
