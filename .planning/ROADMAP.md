@@ -12,7 +12,7 @@
 
 **Covers:** REQ-01, REQ-02, REQ-03, REQ-04
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md — Fix data race, empty-slice panic, and QueryCalendarObjects in calendar.go (Wave 1)
@@ -150,7 +150,7 @@ Plans:
 
 | Phase | Focus | Requirements | Risk |
 |---|---|---|---|
-| 1 | Critical runtime bugs | REQ-01, 02, 03, 04 | High — touches core sync/serving |
+| 1 | 1/2 | In Progress|  |
 | 2 | Protocol correctness | REQ-05, 06, 07 | Medium — iCal edge cases |
 | 3 | Unit tests + fixtures | REQ-08 | Low — additive |
 | 4 | CI + cleanup | REQ-09, 10, 11, 12 | Low — mostly removal |
