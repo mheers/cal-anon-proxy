@@ -87,11 +87,11 @@ Plans:
 
 **Covers:** REQ-08
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed ✅
 
 Plans:
-- [ ] 03-01-PLAN.md — Tag integration test + create testdata/ fixture files (Wave 1)
-- [ ] 03-02-PLAN.md — Write reader_unit_test.go with table-driven unit tests (Wave 2)
+- [x] 03-01-PLAN.md — Tag integration test + create testdata/ fixture files (Wave 1)
+- [x] 03-02-PLAN.md — Write reader_unit_test.go with table-driven unit tests (Wave 2)
 
 ### Tasks
 

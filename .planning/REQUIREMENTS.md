@@ -105,7 +105,7 @@ When a VEVENT has `DTSTART` but neither `DTEND` nor `DURATION`, `harmonizeDurati
 
 ---
 
-## REQ-08: Replace Live Integration Test with Fixture-Based Unit Tests
+## REQ-08: Replace Live Integration Test with Fixture-Based Unit Tests ✅ COMPLETE
 
 **Priority:** High  
 **Source:** CONCERNS.md — Test coverage HIGH; TESTING.md; GO_TESTING.md

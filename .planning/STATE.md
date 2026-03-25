@@ -12,7 +12,7 @@
 |---|---|---|
 | 1 | Fix Critical Runtime Bugs | **✅ Complete** |
 | 2 | Fix iCalendar Protocol Correctness | **✅ Complete** |
-| 3 | Unit Tests + Fixtures | 🔄 In Progress (1/2 plans complete) |
+| 3 | Unit Tests + Fixtures | **✅ Complete** (2/2 plans complete) |
 | 4 | CI Tests + Cleanup | Pending |
 
 ---
@@ -69,9 +69,10 @@
 - `testdata/event_ms_timezone.ics`: VEVENT with TZID=Eastern Standard Time (MS timezone)
 - `testdata/event_no_summary.ics`: VEVENT intentionally missing SUMMARY
 - `testdata/event_zero_duration.ics`: VEVENT with DTSTART only (zero-duration case)
+- `reader_unit_test.go`: 8 table-driven subtests for `summaryOfEvent`, `harmonizeDurationAndEnd`, `toTZ` — all green, no build tag, runs in CI without credentials
 
 ---
 
 ## Next Action
 
-Execute plan 03-02: Write `reader_unit_test.go` with table-driven unit tests for `summaryOfEvent`, `harmonizeDurationAndEnd`, and `toTZ` using the testdata fixtures.
+Execute Phase 4: CI Tests + Cleanup
