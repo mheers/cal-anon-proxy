@@ -54,6 +54,11 @@ Plans:
 
 **Covers:** REQ-05, REQ-06, REQ-07
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Fix toTZ DATE guard, harmonizeDurationAndEnd zero-duration, and EXDATE/RECURRENCE-ID props (Wave 1)
+
 ### Tasks
 
 1. **Fix all-day event corruption in `toTZ`** (`reader.go`)
