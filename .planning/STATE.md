@@ -2,7 +2,7 @@
 
 **Project:** cal-anon-proxy Hardening  
 **Initialized:** 2026-03-25  
-**Current phase:** Phase 3 — Unit Tests + Fixtures
+**Current phase:** Phase 4 — CI Tests + Cleanup (Complete)
 
 ---
 
@@ -13,7 +13,7 @@
 | 1 | Fix Critical Runtime Bugs | **✅ Complete** |
 | 2 | Fix iCalendar Protocol Correctness | **✅ Complete** |
 | 3 | Unit Tests + Fixtures | **✅ Complete** (2/2 plans complete) |
-| 4 | CI Tests + Cleanup | **✅ Complete** (1/1 plans complete) |
+| 4 | CI Tests + Cleanup | **✅ Complete** (2/2 plans complete) |
 
 ---
 
@@ -23,6 +23,8 @@
 - **REPORT fix strategy:** Store each event as individual `CalendarObject` in `SetEvents`; implement `QueryCalendarObjects` via `caldav.Filter()`
 - **Test strategy:** `//go:build integration` tag on existing test; new `reader_unit_test.go` with `testdata/*.ics` fixtures; no mock library needed for pure function tests
 - **Fixture gitignore bypass:** `*.ics` was in `.gitignore` (for live calendar data files like `caldav.ics`); testdata fixtures force-added via `git add -f` — fixtures must be versioned while live data stays ignored
+- **fmt import retention (04-02):** Kept `fmt` import in `reader.go` and `main.go` — `fmt.Errorf` and `fmt.Sprintf` still used; only `fmt.Printf` diagnostic calls were targets for replacement
+- **partials-generated.go manual edit (04-02):** `htmgo generate` failed with permission denied in sandbox; manual edit of `__htmgo/partials-generated.go` produces identical empty-stub result
 
 ---
 
@@ -75,8 +77,13 @@
 
 ## Next Action
 
-Phase 4 complete. All phases done.
+All phases complete. Project hardening finished on 2026-03-25.
 
 ### Phase 4 — CI Tests + Cleanup (2026-03-25)
 - `.github/workflows/main.yml`: Added "Run tests" step (`go test -race ./...`) before Dagger build
 - `pages/index.go`: Fixed FullCalendar CSS CDN from v5.5.1 to v6.1.15 (matches JS version)
+- `reader.go`: Removed dead code (allowedEvents block, renameEvents block, VTIMEZONE comment, contains() function); replaced fmt.Printf with logrus.Debugf; added logrus import
+- `middleware.go`: Deleted tracingMiddleware function (never called) and commented-out logrus.Infof line
+- `main.go`: Replaced fmt.Printf with logrus.Infof in updateEvents
+- `partials/index.go`: Deleted (htmgo demo CounterPartial scaffold, unused)
+- `__htmgo/partials-generated.go`: Manually cleaned to remove CounterPartial references; htmgo generate unavailable in sandbox

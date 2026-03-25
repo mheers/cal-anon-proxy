@@ -127,7 +127,7 @@ Plans:
 
 **Covers:** REQ-09, REQ-10, REQ-11, REQ-12
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 04-01-PLAN.md — Add CI test step + fix FullCalendar CSS version mismatch (Wave 1)
@@ -170,7 +170,7 @@ Plans:
 | 1 | 1/2 | In Progress|  |
 | 2 | Protocol correctness | REQ-05, 06, 07 | Medium — iCal edge cases |
 | 3 | 1/2 | In Progress|  |
-| 4 | CI + cleanup | REQ-09, 10, 11, 12 | Low — mostly removal |
+| 4 | 2/2 | Complete   | 2026-03-25 |
 
 **Estimated total:** 4 focused phases, each committable independently.  
 **Start with:** `/gsd-plan-phase 1`
