@@ -149,8 +149,8 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 				summaryValue := s.Value
 				logrus.Debugf("Event: %s", summaryValue)
 
-				event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz.String())
-				event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz.String())
+				event.Data.Children[x].Props.Del(ical.PropTimezoneName)
+				event.Data.Children[x].Props.Del(ical.PropTimezoneID)
 
 				// harmonize DURATION and DTEND
 				if err := harmonizeDurationAndEnd(event, x); err != nil {
@@ -206,24 +206,35 @@ func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName strin
 	eventProps := event.Data.Children[x].Props
 	prop := eventProps.Get(propName)
 	if prop == nil {
-		return fmt.Errorf("property %s not found for event %s", propName, summaryOfEvent(event))
+		// Property is optional (e.g. DTSTAMP) — nothing to convert
+		return nil
 	}
 	// All-day events use VALUE=DATE — skip timezone conversion, preserve as-is
 	if prop.ValueType() == ical.ValueDate {
 		return nil
 	}
+
+	// Translate Microsoft timezone names (e.g. "Eastern Standard Time") to IANA before parsing
 	tzID := prop.Params.Get(ical.PropTimezoneID)
 	if tzID != "" {
-		tz := tzLib.TranslateMSTimezoneToIANA(tzID)
-		event.Data.Children[x].Props.Get(propName).Params.Set(ical.PropTimezoneID, tz)
+		ianaName := tzLib.TranslateMSTimezoneToIANA(tzID)
+		loc, err := time.LoadLocation(ianaName)
+		if err == nil {
+			tz = loc
+		}
+		prop.Params.Set(ical.PropTimezoneID, ianaName)
 	}
 
-	dateTime, err := event.Data.Children[x].Props.Get(propName).DateTime(tz)
+	dateTime, err := prop.DateTime(tz)
 	if err != nil {
 		return err
 	}
-	event.Data.Children[x].Props.Get(propName).Params.Set(ical.PropTimezoneID, tz.String())
-	event.Data.Children[x].Props.SetDateTime(propName, dateTime.In(tz))
+
+	// Emit as UTC ("Z" form) — unambiguous and allows FullCalendar to display
+	// in any viewer-selected timezone correctly.
+	utc := dateTime.UTC()
+	prop.Params.Del(ical.PropTimezoneID)
+	event.Data.Children[x].Props.SetDateTime(propName, utc)
 
 	return nil
 }

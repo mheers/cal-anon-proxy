@@ -58,6 +58,8 @@ func main() {
 				http.StripPrefix(cfg.PublicAssetPath, http.FileServerFS(sub)))
 
 			app.Router.Handle("/caldav/", handler)
+			app.Router.HandleFunc("/calendar.ics", calDavHandler.ServeICS)
+			app.Router.HandleFunc("/events.json", calDavHandler.ServeEventsJSON)
 
 			__htmgo.Register(app.Router)
 		},

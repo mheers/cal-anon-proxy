@@ -1,8 +1,11 @@
 services:
   cal-anon-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: mheers/cal-anon-proxy:latest
     ports:
-      - "8086:8086"
+      - "3000:3000"
     environment:
       - "SRC_UPDATE_INTERVAL=${SRC_UPDATE_INTERVAL}"
       - "SRC_1_URL=${SRC_1_URL}"
