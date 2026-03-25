@@ -11,6 +11,7 @@ import (
 	"github.com/emersion/go-webdav"
 	"github.com/emersion/go-webdav/caldav"
 	tzLib "github.com/mheers/go-tz"
+	"github.com/sirupsen/logrus"
 )
 
 func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
@@ -46,7 +47,7 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 	}
 
 	for _, calendar := range calendars {
-		fmt.Printf("Calendar: %s\n", calendar.Name)
+		logrus.Debugf("Calendar: %s", calendar.Name)
 	}
 
 	if len(calendars) == 0 {
@@ -59,7 +60,7 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 	queryEnd := queryStart.AddDate(0, 0, 7*6) // 6 weeks
 
 	// print start date
-	fmt.Printf("Looking for events from %s to %s\n", queryStart.Format(time.RFC3339), queryEnd.Format(time.RFC3339))
+	logrus.Debugf("Looking for events from %s to %s", queryStart.Format(time.RFC3339), queryEnd.Format(time.RFC3339))
 
 	queryResult, err := caldavClient.QueryCalendar(ctx, calendar.Path, &caldav.CalendarQuery{
 		CompRequest: caldav.CalendarCompRequest{
@@ -95,17 +96,6 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 
 	for _, eventFromQuery := range queryResult {
 		event := &eventFromQuery
-
-		allowedEvents := []string{}
-
-		if len(allowedEvents) > 0 {
-			summary := summaryOfEvent(event)
-			if !contains(allowedEvents, summary) {
-				continue
-			}
-		}
-
-		renameEvents := map[string]string{}
 
 		tz, err := time.LoadLocation("Europe/London")
 		if err != nil {
@@ -157,11 +147,7 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 					continue
 				}
 				summaryValue := s.Value
-				fmt.Printf("Event: %s\n", summaryValue)
-
-				if newSummary, ok := renameEvents[summaryValue]; ok {
-					event.Data.Children[x].Props.SetText(ical.PropSummary, newSummary)
-				}
+				logrus.Debugf("Event: %s", summaryValue)
 
 				event.Data.Children[x].Props.SetText(ical.PropTimezoneName, tz.String())
 				event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz.String())
@@ -186,14 +172,6 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 					return nil, err
 				}
 			}
-			// if vevent.Name == "VTIMEZONE" {
-			// 	tzid := event.Data.Children[x].Props.Get(ical.PropTimezoneID)
-			// 	if tzid != nil {
-			// 		tz := translateTZ(tzid.Value)
-			// 		event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz)
-			// 	}
-			// 	event.Data.Children[x].Props.SetText(ical.PropTimezoneID, tz.String())
-			// }
 		}
 
 		// remove VTIMEZONE
@@ -222,15 +200,6 @@ func summaryOfEvent(event *caldav.CalendarObject) string {
 		}
 	}
 	return ""
-}
-
-func contains(arr []string, s string) bool {
-	for _, a := range arr {
-		if a == s {
-			return true
-		}
-	}
-	return false
 }
 
 func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName string) error {
