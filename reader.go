@@ -49,6 +49,9 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 		fmt.Printf("Calendar: %s\n", calendar.Name)
 	}
 
+	if len(calendars) == 0 {
+		return nil, fmt.Errorf("no calendars found for source %s", src.URL)
+	}
 	calendar := calendars[0]
 
 	// queryStart of current week
