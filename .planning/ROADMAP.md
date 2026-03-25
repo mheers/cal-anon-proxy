@@ -12,6 +12,12 @@
 
 **Covers:** REQ-01, REQ-02, REQ-03, REQ-04
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Fix data race, empty-slice panic, and QueryCalendarObjects in calendar.go (Wave 1)
+- [ ] 01-02-PLAN.md — Add HTTP client timeout and guard calendars slice in reader.go (Wave 1)
+
 ### Tasks
 
 1. **Fix data race on `CalDavHandler.Backend`** (`calendar.go`)
