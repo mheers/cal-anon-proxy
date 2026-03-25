@@ -12,7 +12,7 @@
 |---|---|---|
 | 1 | Fix Critical Runtime Bugs | **✅ Complete** |
 | 2 | Fix iCalendar Protocol Correctness | **✅ Complete** |
-| 3 | Unit Tests + Fixtures | Pending |
+| 3 | Unit Tests + Fixtures | 🔄 In Progress (1/2 plans complete) |
 | 4 | CI Tests + Cleanup | Pending |
 
 ---
@@ -22,7 +22,7 @@
 - **Concurrency fix strategy:** `sync.RWMutex` on `CalDavHandler` (write lock in `SetEvents`, read lock on handler dispatch) — more readable than `atomic.Pointer[T]` for this struct-field case
 - **REPORT fix strategy:** Store each event as individual `CalendarObject` in `SetEvents`; implement `QueryCalendarObjects` via `caldav.Filter()`
 - **Test strategy:** `//go:build integration` tag on existing test; new `reader_unit_test.go` with `testdata/*.ics` fixtures; no mock library needed for pure function tests
-- **HTTP timeout:** `30s` client-level + transport-level `DialContext` 5s + `TLSHandshakeTimeout` 5s
+- **Fixture gitignore bypass:** `*.ics` was in `.gitignore` (for live calendar data files like `caldav.ics`); testdata fixtures force-added via `git add -f` — fixtures must be versioned while live data stays ignored
 
 ---
 
@@ -61,8 +61,17 @@
 - `reader.go`: `harmonizeDurationAndEnd` — zero-duration events set DTEND=DTSTART instead of error (REQ-06)
 - `reader.go`: `CompRequest.Props` — added `"EXDATE"` and `"RECURRENCE-ID"` (REQ-07)
 
+### Phase 3 — Unit Tests + Fixtures (2026-03-25)
+- `reader_test.go`: `//go:build integration` confirmed on line 1 — CI excludes integration test without credentials
+- `testdata/event_with_duration.ics`: VEVENT with DTSTART + DURATION:PT1H, no DTEND
+- `testdata/event_with_dtend.ics`: VEVENT with DTSTART + DTEND (SUMMARY=Team Meeting)
+- `testdata/event_allday.ics`: All-day event with DTSTART;VALUE=DATE
+- `testdata/event_ms_timezone.ics`: VEVENT with TZID=Eastern Standard Time (MS timezone)
+- `testdata/event_no_summary.ics`: VEVENT intentionally missing SUMMARY
+- `testdata/event_zero_duration.ics`: VEVENT with DTSTART only (zero-duration case)
+
 ---
 
 ## Next Action
 
-Run `/gsd-plan-phase 3` to create a detailed execution plan for Phase 3 (Unit Tests + Fixtures).
+Execute plan 03-02: Write `reader_unit_test.go` with table-driven unit tests for `summaryOfEvent`, `harmonizeDurationAndEnd`, and `toTZ` using the testdata fixtures.

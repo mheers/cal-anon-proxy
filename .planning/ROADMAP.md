@@ -87,7 +87,7 @@ Plans:
 
 **Covers:** REQ-08
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 03-01-PLAN.md — Tag integration test + create testdata/ fixture files (Wave 1)
@@ -163,7 +163,7 @@ Plans:
 |---|---|---|---|
 | 1 | 1/2 | In Progress|  |
 | 2 | Protocol correctness | REQ-05, 06, 07 | Medium — iCal edge cases |
-| 3 | Unit tests + fixtures | REQ-08 | Low — additive |
+| 3 | 1/2 | In Progress|  |
 | 4 | CI + cleanup | REQ-09, 10, 11, 12 | Low — mostly removal |
 
 **Estimated total:** 4 focused phases, each committable independently.  
