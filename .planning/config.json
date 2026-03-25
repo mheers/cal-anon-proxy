@@ -1,0 +1,9 @@
+{
+  "workflow": "gsd",
+  "phases": "atomic-commits",
+  "research": true,
+  "auto_commit": true,
+  "test_command": "go test -race ./...",
+  "build_command": "go build ./...",
+  "created": "2026-03-25"
+}
