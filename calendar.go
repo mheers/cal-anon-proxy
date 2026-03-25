@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav/caldav"
@@ -85,12 +86,20 @@ func (b *calendarBackend) QueryCalendarObjects(ctx context.Context, path string,
 }
 
 type CalDavHandler struct {
+	mu   sync.RWMutex
 	path string
 	*caldav.Handler
 }
 
+func (h *CalDavHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mu.RLock()
+	handler := h.Handler
+	h.mu.RUnlock()
+	handler.ServeHTTP(w, r)
+}
+
 func (h *CalDavHandler) HTTPHandler() http.Handler {
-	return h.Handler
+	return h
 }
 
 func (h *CalDavHandler) SetEvents(events []*caldav.CalendarObject) {
@@ -98,31 +107,43 @@ func (h *CalDavHandler) SetEvents(events []*caldav.CalendarObject) {
 		Path:                  h.path,
 		SupportedComponentSet: []string{ical.CompEvent},
 	}
+	calendars := []caldav.Calendar{sessionsCal}
 
-	calendars := []caldav.Calendar{
-		sessionsCal,
+	// Build individual objects per event (OUTSIDE lock)
+	objects := make([]caldav.CalendarObject, 0, len(events))
+	for i, event := range events {
+		objPath := event.Path
+		if objPath == "" {
+			// Try UID from first VEVENT child
+			uid := ""
+			if len(event.Data.Children) > 0 {
+				uidProp := event.Data.Children[0].Props.Get(ical.PropUID)
+				if uidProp != nil {
+					uid = uidProp.Value
+				}
+			}
+			if uid != "" {
+				objPath = fmt.Sprintf("%s%s.ics", h.path, uid)
+			} else {
+				objPath = fmt.Sprintf("%s%d.ics", h.path, i)
+			}
+		}
+		objects = append(objects, caldav.CalendarObject{
+			Path: objPath,
+			Data: event.Data,
+		})
 	}
-	cal := ical.NewCalendar()
-	cal.Props.SetText(ical.PropVersion, "2.0")
-	cal.Props.SetText(ical.PropProductID, "-//xyz Corp//NONSGML PDA Calendar Version 1.0//EN")
 
-	cal.Children = []*ical.Component{}
-
-	for _, event := range events {
-		cal.Children = append(cal.Children, event.Data.Children...)
-	}
-
-	object := caldav.CalendarObject{
-		Path: h.path,
-		Data: cal,
-	}
-
-	h.Backend = &calendarBackend{
+	newBackend := &calendarBackend{
 		calendars: calendars,
 		objectMap: map[string][]caldav.CalendarObject{
-			sessionsCal.Path: {object},
+			sessionsCal.Path: objects,
 		},
 	}
+
+	h.mu.Lock()
+	h.Handler.Backend = newBackend
+	h.mu.Unlock()
 }
 
 func NewCalDavHandler(path string) *CalDavHandler {
