@@ -36,26 +36,7 @@ func (a *auth) middleware(actualHandler http.Handler) http.Handler {
 		// user is authenticated: store this info in the context
 		ctx := context.WithValue(r.Context(), CtxKey{}, CtxValue{username})
 
-		// logrus.Infof("authenticated as %s", username)
-
 		// delegate the work to the CardDAV handle
 		actualHandler.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-// tracingMiddleware logs incoming requests
-func tracingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// start := time.Now()
-
-		// Log the incoming request details
-		logrus.Infof("Request Method: %s, URL: %s, RemoteAddr: %s, User-Agent: %s",
-			r.Method, r.URL.Path, r.RemoteAddr, r.Header.Get("User-Agent"))
-
-		// Call the next handler
-		next.ServeHTTP(w, r)
-
-		// Log the duration it took to handle the request
-		// logrus.Infof("Completed in %s", time.Since(start))
 	})
 }

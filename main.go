@@ -71,6 +71,6 @@ func updateEvents(proxy *CalProxy, calDavHandler *CalDavHandler) {
 		return
 	}
 
-	fmt.Printf("Downloaded %d events\n", len(events))
+	logrus.Infof("Downloaded %d events", len(events))
 	calDavHandler.SetEvents(events)
 }
