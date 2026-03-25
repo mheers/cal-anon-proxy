@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -25,7 +26,13 @@ func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
 }
 
 func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
-	httpClient := &http.Client{}
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			DialContext:         (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+			TLSHandshakeTimeout: 5 * time.Second,
+		},
+	}
 	caldavClient, err := caldav.NewClient(webdav.HTTPClientWithBasicAuth(httpClient, src.Username, src.Password), src.URL)
 	if err != nil {
 		return nil, err
