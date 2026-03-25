@@ -2,7 +2,7 @@
 
 **Project:** cal-anon-proxy Hardening  
 **Initialized:** 2026-03-25  
-**Current phase:** Phase 2 — Fix iCalendar Protocol Correctness
+**Current phase:** Phase 3 — Unit Tests + Fixtures
 
 ---
 
@@ -11,7 +11,7 @@
 | Phase | Title | Status |
 |---|---|---|
 | 1 | Fix Critical Runtime Bugs | **✅ Complete** |
-| 2 | Fix iCalendar Protocol Correctness | **Ready to start** |
+| 2 | Fix iCalendar Protocol Correctness | **✅ Complete** |
 | 3 | Unit Tests + Fixtures | Pending |
 | 4 | CI Tests + Cleanup | Pending |
 
@@ -56,8 +56,13 @@
 - `reader.go`: `calendars[0]` guarded with descriptive error when upstream empty
 - `reader_test.go`: Tagged `//go:build integration` — CI no longer needs credentials
 
+### Phase 2 — Fix iCalendar Protocol Correctness (2026-03-25)
+- `reader.go`: `toTZ` — VALUE=DATE early return guard — all-day events preserved as-is (REQ-05)
+- `reader.go`: `harmonizeDurationAndEnd` — zero-duration events set DTEND=DTSTART instead of error (REQ-06)
+- `reader.go`: `CompRequest.Props` — added `"EXDATE"` and `"RECURRENCE-ID"` (REQ-07)
+
 ---
 
 ## Next Action
 
-Run `/gsd-plan-phase 2` to create a detailed execution plan for Phase 2 (iCalendar Protocol Correctness).
+Run `/gsd-plan-phase 3` to create a detailed execution plan for Phase 3 (Unit Tests + Fixtures).

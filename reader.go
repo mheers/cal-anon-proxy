@@ -73,6 +73,8 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 					"DTEND",
 					"DURATION",
 					"RRULE",
+					"EXDATE",
+					"RECURRENCE-ID",
 				},
 			}},
 		},
@@ -237,6 +239,10 @@ func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName strin
 	if prop == nil {
 		return fmt.Errorf("property %s not found for event %s", propName, summaryOfEvent(event))
 	}
+	// All-day events use VALUE=DATE — skip timezone conversion, preserve as-is
+	if prop.ValueType() == ical.ValueDate {
+		return nil
+	}
 	tzID := prop.Params.Get(ical.PropTimezoneID)
 	if tzID != "" {
 		tz := tzLib.TranslateMSTimezoneToIANA(tzID)
@@ -266,11 +272,15 @@ func harmonizeDurationAndEnd(event *caldav.CalendarObject, x int) error {
 	}
 
 	duration := eventProps.Get(ical.PropDuration)
-	if duration == nil {
-		return fmt.Errorf("duration not found for event %s", summaryOfEvent(event))
-	}
-	if duration.Value == "" {
-		return fmt.Errorf("duration not found for event %s", summaryOfEvent(event))
+	if duration == nil || duration.Value == "" {
+		// Zero-duration event: DTSTART only, no DTEND or DURATION — RFC 5545 §3.6.1 valid case
+		// Set DTEND = DTSTART so downstream processing and clients handle it correctly
+		startTime, err := start.DateTime(time.UTC)
+		if err != nil {
+			return err
+		}
+		event.Data.Children[x].Props.SetDateTime(ical.PropDateTimeEnd, startTime)
+		return nil
 	}
 
 	startTime, err := start.DateTime(time.UTC)
