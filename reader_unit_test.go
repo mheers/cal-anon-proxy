@@ -1,0 +1,176 @@
+package main
+
+import (
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	ical "github.com/emersion/go-ical"
+	"github.com/emersion/go-webdav/caldav"
+	"github.com/stretchr/testify/require"
+)
+
+func loadFixture(t *testing.T, path string) *caldav.CalendarObject {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open fixture %q: %v", path, err)
+	}
+	defer f.Close()
+	cal, err := ical.NewDecoder(f).Decode()
+	if err != nil {
+		t.Fatalf("decode fixture %q: %v", path, err)
+	}
+	return &caldav.CalendarObject{Data: cal}
+}
+
+func TestHarmonizeDurationAndEnd(t *testing.T) {
+	tests := []struct {
+		name           string
+		fixture        string
+		wantErr        bool
+		checkDTEND     string // substring expected in DTEND.Value
+		wantNoDURATION bool
+		wantDTENDSet   bool // just assert DTEND is not nil
+	}{
+		{
+			name:         "DTEND already present — no-op",
+			fixture:      "testdata/event_with_dtend.ics",
+			wantErr:      false,
+			checkDTEND:   "110000", // DTEND:20260325T110000Z unchanged
+			wantDTENDSet: true,
+		},
+		{
+			name:           "DURATION present — compute DTEND",
+			fixture:        "testdata/event_with_duration.ics",
+			wantErr:        false,
+			checkDTEND:     "100000", // DTSTART 09:00Z + PT1H = 10:00Z
+			wantNoDURATION: true,
+			wantDTENDSet:   true,
+		},
+		{
+			name:         "zero-duration — DTEND equals DTSTART",
+			fixture:      "testdata/event_zero_duration.ics",
+			wantErr:      false,
+			checkDTEND:   "000000", // DTSTART:20260325T000000Z → DTEND same
+			wantDTENDSet: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := loadFixture(t, tc.fixture)
+			err := harmonizeDurationAndEnd(obj, 0)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			if tc.wantDTENDSet {
+				end := obj.Data.Children[0].Props.Get(ical.PropDateTimeEnd)
+				require.NotNil(t, end, "expected DTEND prop to be set")
+				if tc.checkDTEND != "" {
+					require.True(t, strings.Contains(end.Value, tc.checkDTEND),
+						"expected DTEND value %q to contain %q", end.Value, tc.checkDTEND)
+				}
+			}
+
+			if tc.wantNoDURATION {
+				dur := obj.Data.Children[0].Props.Get(ical.PropDuration)
+				require.Nil(t, dur, "expected DURATION prop to be deleted after harmonize")
+			}
+		})
+	}
+}
+
+func TestToTZ(t *testing.T) {
+	london, err := time.LoadLocation("Europe/London")
+	require.NoError(t, err, "failed to load Europe/London timezone")
+
+	tests := []struct {
+		name                string
+		fixture             string
+		prop                string
+		wantErr             bool
+		wantTZID            string
+		wantUnmodifiedValue string // if set, prop.Value must equal this exactly (all-day case)
+	}{
+		{
+			name:     "UTC event — convert to London",
+			fixture:  "testdata/event_with_dtend.ics",
+			prop:     ical.PropDateTimeStart,
+			wantErr:  false,
+			wantTZID: "Europe/London",
+		},
+		{
+			name:     "MS timezone — translated to London",
+			fixture:  "testdata/event_ms_timezone.ics",
+			prop:     ical.PropDateTimeStart,
+			wantErr:  false,
+			wantTZID: "Europe/London",
+		},
+		{
+			name:                "all-day — skip conversion",
+			fixture:             "testdata/event_allday.ics",
+			prop:                ical.PropDateTimeStart,
+			wantErr:             false,
+			wantUnmodifiedValue: "20260325", // VALUE=DATE stays unchanged
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := loadFixture(t, tc.fixture)
+			err := toTZ(obj, 0, london, tc.prop)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			prop := obj.Data.Children[0].Props.Get(tc.prop)
+			require.NotNil(t, prop, "expected prop %q to exist after toTZ", tc.prop)
+
+			if tc.wantTZID != "" {
+				tzid := prop.Params.Get(ical.PropTimezoneID)
+				require.Equal(t, tc.wantTZID, tzid, "expected TZID param to be %q", tc.wantTZID)
+			}
+
+			if tc.wantUnmodifiedValue != "" {
+				require.Equal(t, tc.wantUnmodifiedValue, prop.Value,
+					"expected all-day prop value to remain unchanged")
+			}
+		})
+	}
+}
+
+func TestSummaryOfEvent(t *testing.T) {
+	tests := []struct {
+		name    string
+		fixture string
+		want    string
+	}{
+		{
+			name:    "has SUMMARY",
+			fixture: "testdata/event_with_dtend.ics",
+			want:    "Team Meeting",
+		},
+		{
+			name:    "no SUMMARY",
+			fixture: "testdata/event_no_summary.ics",
+			want:    "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := loadFixture(t, tc.fixture)
+			got := summaryOfEvent(obj)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
