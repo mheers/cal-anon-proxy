@@ -85,7 +85,14 @@ func (b *calendarBackend) ListCalendarObjects(ctx context.Context, path string, 
 }
 
 func (b *calendarBackend) QueryCalendarObjects(ctx context.Context, path string, query *caldav.CalendarQuery) ([]caldav.CalendarObject, error) {
-	return nil, nil
+	objects, ok := b.objectMap[path]
+	if !ok {
+		return nil, nil
+	}
+	if query == nil {
+		return objects, nil
+	}
+	return caldav.Filter(query, objects)
 }
 
 type CalDavHandler struct {
