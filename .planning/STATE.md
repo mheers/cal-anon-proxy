@@ -13,7 +13,7 @@
 | 1 | Fix Critical Runtime Bugs | **✅ Complete** |
 | 2 | Fix iCalendar Protocol Correctness | **✅ Complete** |
 | 3 | Unit Tests + Fixtures | **✅ Complete** (2/2 plans complete) |
-| 4 | CI Tests + Cleanup | Pending |
+| 4 | CI Tests + Cleanup | **✅ Complete** (1/1 plans complete) |
 
 ---
 
@@ -75,4 +75,8 @@
 
 ## Next Action
 
-Execute Phase 4: CI Tests + Cleanup
+Phase 4 complete. All phases done.
+
+### Phase 4 — CI Tests + Cleanup (2026-03-25)
+- `.github/workflows/main.yml`: Added "Run tests" step (`go test -race ./...`) before Dagger build
+- `pages/index.go`: Fixed FullCalendar CSS CDN from v5.5.1 to v6.1.15 (matches JS version)
