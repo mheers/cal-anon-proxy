@@ -31,6 +31,9 @@ func (b *calendarBackend) CreateCalendar(ctx context.Context, calendar *caldav.C
 }
 
 func (b *calendarBackend) Calendar(ctx context.Context) (*caldav.Calendar, error) {
+	if len(b.calendars) == 0 {
+		return nil, fmt.Errorf("no calendars available")
+	}
 	return &b.calendars[0], nil
 }
 
