@@ -6,7 +6,7 @@ import (
 
 func IndexPage(ctx *h.RequestContext) *h.Page {
 	return RootPage(
-		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@5.5.1/main.min.css", "stylesheet"),
+		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css", "stylesheet"),
 		h.Script("https://cdnjs.cloudflare.com/ajax/libs/ical.js/1.5.0/ical.min.js"),
 		h.Script("https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"),
 		h.Script("https://cdn.jsdelivr.net/npm/@fullcalendar/icalendar@6.1.15/index.global.min.js"),
