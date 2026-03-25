@@ -2,7 +2,7 @@
 
 **Project:** cal-anon-proxy Hardening  
 **Initialized:** 2026-03-25  
-**Current phase:** Not started — ready for Phase 1
+**Current phase:** Phase 2 — Fix iCalendar Protocol Correctness
 
 ---
 
@@ -10,8 +10,8 @@
 
 | Phase | Title | Status |
 |---|---|---|
-| 1 | Fix Critical Runtime Bugs | **Ready to start** |
-| 2 | Fix iCalendar Protocol Correctness | Pending |
+| 1 | Fix Critical Runtime Bugs | **✅ Complete** |
+| 2 | Fix iCalendar Protocol Correctness | **Ready to start** |
 | 3 | Unit Tests + Fixtures | Pending |
 | 4 | CI Tests + Cleanup | Pending |
 
@@ -45,6 +45,19 @@
 
 ---
 
+## Completed Work
+
+### Phase 1 — Fix Critical Runtime Bugs (2026-03-25)
+- `calendar.go`: `sync.RWMutex` on `CalDavHandler` — data race eliminated
+- `calendar.go`: `calendarBackend.Calendar()` guards against empty slice panic
+- `calendar.go`: `SetEvents` now stores one `CalendarObject` per event (not merged)
+- `calendar.go`: `QueryCalendarObjects` implemented via `caldav.Filter` — REPORT works
+- `reader.go`: HTTP client timeout — 30s client + 5s DialContext + 5s TLS
+- `reader.go`: `calendars[0]` guarded with descriptive error when upstream empty
+- `reader_test.go`: Tagged `//go:build integration` — CI no longer needs credentials
+
+---
+
 ## Next Action
 
-Run `/gsd-plan-phase 1` to create a detailed execution plan for Phase 1.
+Run `/gsd-plan-phase 2` to create a detailed execution plan for Phase 2 (iCalendar Protocol Correctness).
