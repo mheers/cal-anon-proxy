@@ -127,6 +127,12 @@ Plans:
 
 **Covers:** REQ-09, REQ-10, REQ-11, REQ-12
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Add CI test step + fix FullCalendar CSS version mismatch (Wave 1)
+- [ ] 04-02-PLAN.md — Remove dead code, commented-out blocks, and replace fmt.Printf with logrus (Wave 1)
+
 ### Tasks
 
 1. **Add test step to GitHub Actions** (`.github/workflows/main.yml`)
