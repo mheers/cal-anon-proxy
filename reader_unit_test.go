@@ -174,3 +174,65 @@ func TestSummaryOfEvent(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeSourceURL(t *testing.T) {
+	tests := []struct {
+		name           string
+		rawURL         string
+		wantURL        string
+		wantICS        bool
+		wantErr        bool
+		wantURLContain string
+	}{
+		{
+			name:           "google cid URL",
+			rawURL:         "https://calendar.google.com/calendar/u/0?cid=Y2FsZW5kYXIuZXhhbXBsZV9leHRAb3JnLmV4YW1wbGU",
+			wantICS:        true,
+			wantURLContain: "/calendar/ical/calendar.example_ext@org.example/public/basic.ics",
+		},
+		{
+			name:           "google embed URL",
+			rawURL:         "https://calendar.google.com/calendar/embed?src=calendar.example_ext%40org.example&ctz=Europe%2FAthens",
+			wantICS:        true,
+			wantURLContain: "/calendar/ical/calendar.example_ext@org.example/public/basic.ics",
+		},
+		{
+			name:    "google direct ics URL",
+			rawURL:  "https://calendar.google.com/calendar/ical/calendar.example_ext%40org.example/public/basic.ics",
+			wantURL: "https://calendar.google.com/calendar/ical/calendar.example_ext%40org.example/public/basic.ics",
+			wantICS: true,
+		},
+		{
+			name:    "non-google direct ics URL",
+			rawURL:  "https://example.com/public/calendar.ics",
+			wantURL: "https://example.com/public/calendar.ics",
+			wantICS: true,
+		},
+		{
+			name:    "non-google caldav URL",
+			rawURL:  "https://nextcloud.example/remote.php/dav/public-calendars/abc?export",
+			wantURL: "https://nextcloud.example/remote.php/dav/public-calendars/abc?export",
+			wantICS: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotURL, gotICS, err := normalizeSourceURL(tc.rawURL)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.wantICS, gotICS)
+
+			if tc.wantURL != "" {
+				require.Equal(t, tc.wantURL, gotURL)
+			}
+			if tc.wantURLContain != "" {
+				require.Contains(t, gotURL, tc.wantURLContain)
+			}
+		})
+	}
+}

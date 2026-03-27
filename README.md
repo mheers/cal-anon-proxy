@@ -14,6 +14,13 @@ docker compose up
 
 In thunderbird calendar add a new entry for http://localhost:8086/caldav/
 
+## Google Calendar source on a server
+
+- Use the calendar URL as `SRC_*_URL`.
+- For private Google calendars, use the **Secret address in iCal format** from Google Calendar settings (`.../private-<token>/basic.ics`).
+- Do **not** use `SRC_*_USERNAME` / `SRC_*_PASSWORD` for Google calendar links (Google basic auth is not supported for this flow).
+- Public Google calendar links are also accepted (`cid=...`, `embed?src=...`, or direct `.../public/basic.ics`).
+
 # Build
 
 ```bash

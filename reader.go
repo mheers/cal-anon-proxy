@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/emersion/go-ical"
@@ -27,6 +31,15 @@ func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
 }
 
 func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
+	normalizedURL, useICS, err := normalizeSourceURL(src.URL)
+	if err != nil {
+		return nil, err
+	}
+
+	if useICS {
+		return p.downloadICS(src, normalizedURL)
+	}
+
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
@@ -34,7 +47,7 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 			TLSHandshakeTimeout: 5 * time.Second,
 		},
 	}
-	caldavClient, err := caldav.NewClient(webdav.HTTPClientWithBasicAuth(httpClient, src.Username, src.Password), src.URL)
+	caldavClient, err := caldav.NewClient(webdav.HTTPClientWithBasicAuth(httpClient, src.Username, src.Password), normalizedURL)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +64,7 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 	}
 
 	if len(calendars) == 0 {
-		return nil, fmt.Errorf("no calendars found for source %s", src.URL)
+		return nil, fmt.Errorf("no calendars found for source %s", normalizedURL)
 	}
 	calendar := calendars[0]
 
@@ -92,10 +105,144 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 		return nil, err
 	}
 
+	calEvents := make([]*caldav.CalendarObject, 0, len(queryResult))
+	for i := range queryResult {
+		calEvents = append(calEvents, &queryResult[i])
+	}
+
+	return processEvents(calEvents, src)
+}
+
+func (p *CalProxy) downloadICS(src *Src, sourceURL string) ([]*caldav.CalendarObject, error) {
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			DialContext:         (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+			TLSHandshakeTimeout: 5 * time.Second,
+		},
+	}
+
+	req, err := http.NewRequest(http.MethodGet, sourceURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if src.Username != "" || src.Password != "" {
+		req.SetBasicAuth(src.Username, src.Password)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		hint := ""
+		if isGoogleCalendarURL(sourceURL) && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound) {
+			hint = " (for Google Calendar on servers, use the Secret address in iCal format as SRC_*_URL; Google username/password basic auth is not supported)"
+		}
+		return nil, fmt.Errorf("failed to fetch %s: status %d: %s%s", sourceURL, resp.StatusCode, strings.TrimSpace(string(body)), hint)
+	}
+
+	cal, err := ical.NewDecoder(resp.Body).Decode()
+	if err != nil {
+		return nil, err
+	}
+
+	events := []*caldav.CalendarObject{{
+		Path: sourceURL,
+		Data: cal,
+	}}
+
+	return processEvents(events, src)
+}
+
+func normalizeSourceURL(rawURL string) (string, bool, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", false, err
+	}
+
+	isGoogleCalendar := strings.EqualFold(u.Host, "calendar.google.com")
+	isICSURL := strings.HasSuffix(strings.ToLower(u.Path), ".ics")
+
+	if !isGoogleCalendar {
+		return rawURL, isICSURL, nil
+	}
+
+	if isICSURL || strings.Contains(strings.ToLower(u.Path), "/calendar/ical/") {
+		return rawURL, true, nil
+	}
+
+	query := u.Query()
+	calendarID := strings.TrimSpace(query.Get("src"))
+	if calendarID == "" {
+		cid := strings.TrimSpace(query.Get("cid"))
+		if cid != "" {
+			calendarID, err = decodeGoogleCalendarCID(cid)
+			if err != nil {
+				return "", false, err
+			}
+		}
+	}
+
+	if calendarID == "" {
+		return rawURL, false, nil
+	}
+
+	calendarID, err = url.QueryUnescape(calendarID)
+	if err != nil {
+		return "", false, err
+	}
+	calendarID = strings.TrimPrefix(calendarID, "mailto:")
+
+	normalized := "https://calendar.google.com/calendar/ical/" + url.PathEscape(calendarID) + "/public/basic.ics"
+	return normalized, true, nil
+}
+
+func isGoogleCalendarURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(u.Host, "calendar.google.com")
+}
+
+func decodeGoogleCalendarCID(cid string) (string, error) {
+	if strings.Contains(cid, "@") {
+		return cid, nil
+	}
+
+	decode := func(encoding *base64.Encoding) (string, error) {
+		decoded, err := encoding.DecodeString(cid)
+		if err != nil {
+			return "", err
+		}
+		return string(decoded), nil
+	}
+
+	if decoded, err := decode(base64.RawURLEncoding); err == nil {
+		return decoded, nil
+	}
+	if decoded, err := decode(base64.URLEncoding); err == nil {
+		return decoded, nil
+	}
+	if decoded, err := decode(base64.RawStdEncoding); err == nil {
+		return decoded, nil
+	}
+	if decoded, err := decode(base64.StdEncoding); err == nil {
+		return decoded, nil
+	}
+
+	return "", fmt.Errorf("unable to decode google calendar cid")
+}
+
+func processEvents(events []*caldav.CalendarObject, src *Src) ([]*caldav.CalendarObject, error) {
 	calEvents := []*caldav.CalendarObject{}
 
-	for _, eventFromQuery := range queryResult {
-		event := &eventFromQuery
+	for _, eventFromQuery := range events {
+		event := eventFromQuery
 
 		tz, err := time.LoadLocation("Europe/London")
 		if err != nil {
@@ -152,29 +299,24 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 				event.Data.Children[x].Props.Del(ical.PropTimezoneName)
 				event.Data.Children[x].Props.Del(ical.PropTimezoneID)
 
-				// harmonize DURATION and DTEND
 				if err := harmonizeDurationAndEnd(event, x); err != nil {
 					return nil, err
 				}
 
-				// set timezone for start
 				if err := toTZ(event, x, tz, ical.PropDateTimeStart); err != nil {
 					return nil, err
 				}
 
-				// set timezone for end
 				if err := toTZ(event, x, tz, ical.PropDateTimeEnd); err != nil {
 					return nil, err
 				}
 
-				// set timezone for dtstamp
 				if err := toTZ(event, x, tz, ical.PropDateTimeStamp); err != nil {
 					return nil, err
 				}
 			}
 		}
 
-		// remove VTIMEZONE
 		children := []*ical.Component{}
 		for _, child := range event.Data.Children {
 			if child.Name != "VTIMEZONE" {
