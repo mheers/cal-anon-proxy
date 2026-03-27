@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
 	"time"
 
 	hConfig "github.com/maddalax/htmgo/framework/config"
@@ -11,9 +12,33 @@ import (
 	"github.com/maddalax/htmgo/framework/service"
 	"github.com/mheers/cal-anon-proxy/__htmgo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 func main() {
+	rootCmd := &cobra.Command{
+		Use:   "cal-anon-proxy",
+		Short: "Anonymizing CalDAV proxy",
+	}
+
+	serverCmd := &cobra.Command{
+		Use:   "server",
+		Short: "Start the CalDAV proxy server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			runServer()
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(serverCmd)
+
+	if err := rootCmd.Execute(); err != nil {
+		logrus.Error(err)
+		os.Exit(1)
+	}
+}
+
+func runServer() {
 	config := ReadConfig()
 
 	proxy := NewCalProxy(config)

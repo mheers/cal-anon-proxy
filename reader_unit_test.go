@@ -95,22 +95,25 @@ func TestToTZ(t *testing.T) {
 		fixture             string
 		prop                string
 		wantErr             bool
-		wantTZID            string
+		wantNoTZID          bool
+		wantValueContains   string
 		wantUnmodifiedValue string // if set, prop.Value must equal this exactly (all-day case)
 	}{
 		{
-			name:     "UTC event — convert to London",
-			fixture:  "testdata/event_with_dtend.ics",
-			prop:     ical.PropDateTimeStart,
-			wantErr:  false,
-			wantTZID: "Europe/London",
+			name:              "UTC event — normalize to UTC",
+			fixture:           "testdata/event_with_dtend.ics",
+			prop:              ical.PropDateTimeStart,
+			wantErr:           false,
+			wantNoTZID:        true,
+			wantValueContains: "Z",
 		},
 		{
-			name:     "MS timezone — translated to London",
-			fixture:  "testdata/event_ms_timezone.ics",
-			prop:     ical.PropDateTimeStart,
-			wantErr:  false,
-			wantTZID: "Europe/London",
+			name:              "MS timezone — normalize to UTC",
+			fixture:           "testdata/event_ms_timezone.ics",
+			prop:              ical.PropDateTimeStart,
+			wantErr:           false,
+			wantNoTZID:        true,
+			wantValueContains: "Z",
 		},
 		{
 			name:                "all-day — skip conversion",
@@ -135,9 +138,14 @@ func TestToTZ(t *testing.T) {
 			prop := obj.Data.Children[0].Props.Get(tc.prop)
 			require.NotNil(t, prop, "expected prop %q to exist after toTZ", tc.prop)
 
-			if tc.wantTZID != "" {
+			if tc.wantNoTZID {
 				tzid := prop.Params.Get(ical.PropTimezoneID)
-				require.Equal(t, tc.wantTZID, tzid, "expected TZID param to be %q", tc.wantTZID)
+				require.Equal(t, "", tzid, "expected TZID param to be removed")
+			}
+
+			if tc.wantValueContains != "" {
+				require.Contains(t, prop.Value, tc.wantValueContains,
+					"expected datetime value %q to contain %q", prop.Value, tc.wantValueContains)
 			}
 
 			if tc.wantUnmodifiedValue != "" {

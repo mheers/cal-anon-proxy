@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 RUN apk update && apk add --no-cache git wget gcompat
 
@@ -14,9 +14,9 @@ COPY . .
 
 # Download tailwind binary used by htmgo build
 RUN mkdir -p __htmgo && \
-    wget -q -O __htmgo/tailwind \
-      https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 && \
-    chmod +x __htmgo/tailwind
+  wget -q -O __htmgo/tailwind \
+  https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 && \
+  chmod +x __htmgo/tailwind
 
 RUN go run github.com/maddalax/htmgo/cli/htmgo@latest build
 
@@ -26,3 +26,4 @@ FROM alpine AS final
 COPY --from=builder /src/dist/cal-anon-proxy /cal-anon-proxy
 
 ENTRYPOINT ["/cal-anon-proxy"]
+CMD ["server"]
