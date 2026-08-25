@@ -21,7 +21,9 @@ jobs:
       # without this step vet/test fail on a fresh checkout.
       - name: Generate htmgo assets
         run: |
-          mkdir -p __htmgo
+          # assets/dist is a gitignored tailwind output dir that htmgo
+          # requires to exist before building.
+          mkdir -p __htmgo assets/dist
           wget -q -O __htmgo/tailwind https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64
           chmod +x __htmgo/tailwind
           go run github.com/maddalax/htmgo/cli/htmgo@latest build
