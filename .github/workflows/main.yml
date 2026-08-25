@@ -17,17 +17,9 @@ jobs:
         with:
           go-version: ">=1.25"
 
-      # pages/ imports __htmgo/assets, which htmgo generates at build time —
-      # without this step vet/test fail on a fresh checkout.
-      - name: Generate htmgo assets
-        run: |
-          # assets/dist is a gitignored tailwind output dir that htmgo
-          # requires to exist before building.
-          mkdir -p __htmgo assets/dist
-          wget -q -O __htmgo/tailwind https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64
-          chmod +x __htmgo/tailwind
-          go run github.com/maddalax/htmgo/cli/htmgo@latest build
-
+      # The generated __htmgo/{partials-generated.go,assets/assets-generated.go}
+      # are committed (force-added past .gitignore) so vet/test compile on a
+      # fresh checkout; dagger regenerates all assets for real image builds.
       - name: Vet
         run: go vet ./...
 

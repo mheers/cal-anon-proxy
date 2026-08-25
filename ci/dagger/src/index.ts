@@ -17,7 +17,8 @@ import { dag, Directory, object, func, Secret } from "@dagger.io/dagger"
 
 const username = "mheers"
 
-const buildImage = "golang:1.23-alpine"
+// go.mod requires go >= 1.25
+const buildImage = "golang:1.25-alpine"
 const baseImage = "alpine"
 const targetImage = "docker.io/mheers/cal-anon-proxy:latest"
 
