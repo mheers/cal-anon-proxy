@@ -211,15 +211,30 @@ func TestNormalizeSourceURL(t *testing.T) {
 			wantICS: true,
 		},
 		{
-			name:    "non-google direct ics URL",
+			name:    "non-google ics URL",
 			rawURL:  "https://example.com/public/calendar.ics",
 			wantURL: "https://example.com/public/calendar.ics",
 			wantICS: true,
 		},
 		{
-			name:    "non-google caldav URL",
+			// Nextcloud public-calendar export links serve a full ICS feed;
+			// they must use the ICS path, NOT the CalDAV path whose 6-week
+			// comp-filter window silently drops events outside it.
+			name:    "nextcloud public-calendars export URL",
 			rawURL:  "https://nextcloud.example/remote.php/dav/public-calendars/abc?export",
 			wantURL: "https://nextcloud.example/remote.php/dav/public-calendars/abc?export",
+			wantICS: true,
+		},
+		{
+			name:    "nextcloud public-calendars URL without export param",
+			rawURL:  "https://nextcloud.example/remote.php/dav/public-calendars/abc",
+			wantURL: "https://nextcloud.example/remote.php/dav/public-calendars/abc",
+			wantICS: true,
+		},
+		{
+			name:    "generic caldav URL stays on caldav path",
+			rawURL:  "https://nextcloud.example/remote.php/dav/calendars/marcel/personal",
+			wantURL: "https://nextcloud.example/remote.php/dav/calendars/marcel/personal",
 			wantICS: false,
 		},
 	}

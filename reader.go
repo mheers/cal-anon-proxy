@@ -168,6 +168,16 @@ func normalizeSourceURL(rawURL string) (string, bool, error) {
 	isICSURL := strings.HasSuffix(strings.ToLower(u.Path), ".ics")
 
 	if !isGoogleCalendar {
+		// Nextcloud-style public-calendar export links
+		// (/remote.php/dav/public-calendars/<token>?export) serve a complete
+		// ICS feed but have no .ics path suffix. They must NOT fall through to
+		// the CalDAV code path: its comp-filter window (current week + 6 weeks)
+		// silently drops every event outside it. The ?export query parameter
+		// and the /public-calendars/ path segment both unambiguously identify
+		// a read-only ICS download.
+		if u.Query().Has("export") || strings.Contains(strings.ToLower(u.Path), "/public-calendars/") {
+			return rawURL, true, nil
+		}
 		return rawURL, isICSURL, nil
 	}
 
