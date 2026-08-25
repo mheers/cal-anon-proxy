@@ -5,9 +5,16 @@ import (
 )
 
 func IndexPage(ctx *h.RequestContext) *h.Page {
+	// FullCalendar v7: CSS was split into skeleton + theme + palette, the JS
+	// bundle moved to all/global(.min).js, and the theme ships as its own
+	// script that self-registers via FullCalendar.Shared.
+	const fcVersion = "7.0.2"
 	return RootPage(
-		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css", "stylesheet"),
-		h.Script("https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"),
+		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@"+fcVersion+"/skeleton.css", "stylesheet"),
+		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@"+fcVersion+"/themes/classic/theme.css", "stylesheet"),
+		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@"+fcVersion+"/themes/classic/palette.css", "stylesheet"),
+		h.Script("https://cdn.jsdelivr.net/npm/fullcalendar@"+fcVersion+"/all/global.min.js"),
+		h.Script("https://cdn.jsdelivr.net/npm/fullcalendar@"+fcVersion+"/themes/classic/global.min.js"),
 
 		h.Div(
 			h.Id("top"),
@@ -53,8 +60,11 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 						hour12: false            // 24-hour format
 					},
 					events: '/events.json',
+					// v7 disables the default toolbar — all parts must be explicit
 					headerToolbar: {
+						start: 'title',
 						center: 'timeGridWeek,timeGridDay',
+						end: 'today prev,next',
 					},
 					loading: function(bool) {
 						if (bool) {
@@ -66,6 +76,7 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 					eventTimeFormat: { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', hour12: false },
 				});
 				calendar.render();
+				window.calendar = calendar; // exposed for tests/debugging
 
 				// when the timezone selector changes, dynamically change the calendar option
 				timeZoneSelectorEl.addEventListener('change', function() {

@@ -130,8 +130,9 @@ func TestServeEventsJSON_AllDayEvent(t *testing.T) {
 		"?start=2026-03-01T00:00:00&end=2026-04-01T00:00:00&timeZone=Europe/London")
 
 	require.Len(t, got, 1)
-	require.NotEmpty(t, got[0].Start)
-	require.NotEmpty(t, got[0].End)
+	require.True(t, got[0].AllDay, "VALUE=DATE events must be flagged allDay")
+	require.Equal(t, "2026-03-25", got[0].Start, "all-day start must be date-only")
+	require.Equal(t, "2026-03-26", got[0].End, "all-day end must be date-only")
 }
 
 func TestServeICS_MergesVEVENTs(t *testing.T) {

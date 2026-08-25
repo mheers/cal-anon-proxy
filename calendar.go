@@ -187,10 +187,11 @@ func (h *CalDavHandler) ServeICS(w http.ResponseWriter, r *http.Request) {
 }
 
 type jsonEvent struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Start string `json:"start"`
-	End   string `json:"end"`
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Start  string `json:"start"`
+	End    string `json:"end"`
+	AllDay bool   `json:"allDay,omitempty"`
 }
 
 // ServeEventsJSON serves a FullCalendar-compatible JSON event feed.
@@ -227,6 +228,11 @@ func (h *CalDavHandler) ServeEventsJSON(w http.ResponseWriter, r *http.Request) 
 			return t.UTC().Format("2006-01-02T15:04:05") + "Z"
 		}
 		return t.In(displayTZ).Format("2006-01-02T15:04:05")
+	}
+
+	// formatDateOnly formats an all-day occurrence as a bare calendar date.
+	formatDateOnly := func(t time.Time) string {
+		return t.In(displayTZ).Format("2006-01-02")
 	}
 
 	// Parse window bounds — FullCalendar sends naive times in the display timezone,
@@ -287,6 +293,7 @@ func (h *CalDavHandler) ServeEventsJSON(w http.ResponseWriter, r *http.Request) 
 		if dtstart == nil {
 			continue
 		}
+		allDay := dtstart.ValueType() == ical.ValueDate
 		duration := time.Duration(0)
 		if dtend := g.base.Props.Get(ical.PropDateTimeEnd); dtend != nil {
 			startT, err1 := dtstart.DateTime(time.UTC)
@@ -314,6 +321,16 @@ func (h *CalDavHandler) ServeEventsJSON(w http.ResponseWriter, r *http.Request) 
 				continue
 			}
 			if !windowEnd.IsZero() && startT.After(windowEnd) {
+				continue
+			}
+			if allDay {
+				out = append(out, jsonEvent{
+					ID:     uid,
+					Title:  summary,
+					Start:  formatDateOnly(startT),
+					End:    formatDateOnly(endT),
+					AllDay: true,
+				})
 				continue
 			}
 			out = append(out, jsonEvent{
@@ -366,6 +383,17 @@ func (h *CalDavHandler) ServeEventsJSON(w http.ResponseWriter, r *http.Request) 
 				continue
 			}
 			if !windowEnd.IsZero() && occ.After(windowEnd) {
+				continue
+			}
+
+			if allDay {
+				out = append(out, jsonEvent{
+					ID:     fmt.Sprintf("%s-%s", uid, occ.UTC().Format("20060102T150405Z")),
+					Title:  occSummary,
+					Start:  formatDateOnly(occ),
+					End:    formatDateOnly(endT),
+					AllDay: true,
+				})
 				continue
 			}
 
