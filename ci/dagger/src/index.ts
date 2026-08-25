@@ -28,7 +28,9 @@ export class Ci {
   async buildAndPushImage(src: Directory, registryToken: Secret): Promise<string> {
     const buildContainer = dag.container().from(buildImage)
       .withExec(["apk", "update"])
-      .withExec(["apk", "add", "git", "wget"])
+      // gcompat/libstdc++/libgcc are required by the tailwind v4 standalone
+      // binary (same fix as the repo Dockerfile).
+      .withExec(["apk", "add", "git", "wget", "gcompat", "libstdc++", "libgcc"])
       .withDirectory("/src", src, { include: ["go.mod", "go.sum"] })
       .withWorkdir("/src")
       .withExec(["go", "mod", "download"])
