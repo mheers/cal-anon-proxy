@@ -10,6 +10,16 @@ This is a simple CalDAV server written in Go that proxies read requests to a rea
 docker compose up
 ```
 
+## Visibility window
+
+Only events inside the window are served (defaults: 4 weeks back, 8 weeks
+into the future):
+
+- `WINDOW_PAST_WEEKS` (default `4`)
+- `WINDOW_FUTURE_WEEKS` (default `8`)
+
+Recurring events are always kept, regardless of how old their DTSTART is.
+
 ## CalDAV
 
 In thunderbird calendar add a new entry for http://localhost:8086/caldav/

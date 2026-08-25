@@ -13,6 +13,13 @@ type Config struct {
 	// ignored and left the interval at 0, panicking NewTicker on startup.
 	SrcUpdateInterval int `env:"SRC_UPDATE_INTERVAL,default=5"`
 
+	// Visibility window applied to every source: events ending before
+	// (now - WindowPastWeeks) or starting after (now + WindowFutureWeeks)
+	// are dropped. Recurring events are always kept — their DTSTART may be
+	// months old while current occurrences still fall inside the window.
+	WindowPastWeeks   int `env:"WINDOW_PAST_WEEKS,default=4"`
+	WindowFutureWeeks int `env:"WINDOW_FUTURE_WEEKS,default=8"`
+
 	Src1URL      string `env:"SRC_1_URL"`
 	Src1Anon     bool   `env:"SRC_1_ANON"`
 	Src1Username string `env:"SRC_1_USERNAME"`

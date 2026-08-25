@@ -385,3 +385,53 @@ func TestProcessEventsAnonWhitelist(t *testing.T) {
 		require.Nil(t, props.Get(leaked), "property %s must be dropped", leaked)
 	}
 }
+
+func icsTime(t time.Time) string {
+	return t.UTC().Format("20060102T150405Z")
+}
+
+func TestFilterWindow(t *testing.T) {
+	p := NewCalProxy(&Config{WindowPastWeeks: 4, WindowFutureWeeks: 8})
+	windowStart := time.Now().AddDate(0, 0, -7*4)
+	windowEnd := time.Now().AddDate(0, 0, 7*8)
+
+	mkEvent := func(uid string, start, end time.Time, rrule bool) *ical.Component {
+		ev := ical.NewComponent(ical.CompEvent)
+		ev.Props.SetText(ical.PropUID, uid)
+		startProp := ical.NewProp(ical.PropDateTimeStart)
+		startProp.Value = icsTime(start)
+		ev.Props.Add(startProp)
+		endProp := ical.NewProp(ical.PropDateTimeEnd)
+		endProp.Value = icsTime(end)
+		ev.Props.Add(endProp)
+		if rrule {
+			ev.Props.SetText(ical.PropRecurrenceRule, "FREQ=WEEKLY")
+		}
+		return ev
+	}
+
+	cal := ical.NewCalendar()
+	// far past, no RRULE -> dropped
+	cal.Children = append(cal.Children, mkEvent("old", windowStart.AddDate(0, 0, -1), windowStart.AddDate(0, 0, -1).Add(time.Hour), false))
+	// ended 5 weeks ago (before the 4-week cutoff) -> dropped
+	cal.Children = append(cal.Children, mkEvent("just-outside-past", windowStart.Add(-8*24*time.Hour), windowStart.Add(-7*24*time.Hour), false))
+	// inside past half of the window -> kept
+	cal.Children = append(cal.Children, mkEvent("recent-past", windowStart.Add(24*time.Hour), windowStart.Add(25*time.Hour), false))
+	// right now -> kept
+	cal.Children = append(cal.Children, mkEvent("now", time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false))
+	// near future -> kept
+	cal.Children = append(cal.Children, mkEvent("near-future", windowEnd.AddDate(0, 0, -1), windowEnd.AddDate(0, 0, -1).Add(time.Hour), false))
+	// beyond future edge -> dropped
+	cal.Children = append(cal.Children, mkEvent("far-future", windowEnd.AddDate(0, 0, 2), windowEnd.AddDate(0, 0, 2).Add(time.Hour), false))
+	// ancient DTSTART but recurring -> kept
+	cal.Children = append(cal.Children, mkEvent("recurring-since-2017", time.Date(2017, 6, 15, 8, 0, 0, 0, time.UTC), time.Date(2017, 6, 15, 9, 0, 0, 0, time.UTC), true))
+
+	obj := &caldav.CalendarObject{Path: "/test.ics", Data: cal}
+	p.filterWindow([]*caldav.CalendarObject{obj})
+
+	got := []string{}
+	for _, child := range obj.Data.Children {
+		got = append(got, child.Props.Get(ical.PropUID).Value)
+	}
+	require.ElementsMatch(t, []string{"recent-past", "now", "near-future", "recurring-since-2017"}, got)
+}

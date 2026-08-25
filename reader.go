@@ -27,7 +27,48 @@ func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
 		}
 		events = append(events, srcEvents...)
 	}
+	p.filterWindow(events)
 	return events, nil
+}
+
+// filterWindow removes VEVENTs that lie entirely outside the configured
+// visibility window (WINDOW_PAST_WEEKS .. WINDOW_FUTURE_WEEKS, defaults 4/8).
+// Applied to all source paths: ICS feeds otherwise carry their full history,
+// and the CalDAV window alone cannot express "past weeks". Recurring events
+// (RRULE) are always kept — their DTSTART may be far in the past while
+// current occurrences still fall inside the window. Unparsable events are
+// kept rather than silently dropped.
+func (p *CalProxy) filterWindow(events []*caldav.CalendarObject) {
+	windowStart := time.Now().AddDate(0, 0, -7*p.config.WindowPastWeeks)
+	windowEnd := time.Now().AddDate(0, 0, 7*p.config.WindowFutureWeeks)
+
+	for _, obj := range events {
+		kept := make([]*ical.Component, 0, len(obj.Data.Children))
+		for _, child := range obj.Data.Children {
+			if child.Name != ical.CompEvent {
+				kept = append(kept, child)
+				continue
+			}
+			if child.Props.Get(ical.PropRecurrenceRule) != nil {
+				kept = append(kept, child)
+				continue
+			}
+			start, err := child.Props.DateTime(ical.PropDateTimeStart, time.UTC)
+			if err != nil {
+				kept = append(kept, child)
+				continue
+			}
+			end, err := child.Props.DateTime(ical.PropDateTimeEnd, time.UTC)
+			if err != nil {
+				end = start
+			}
+			if end.Before(windowStart) || start.After(windowEnd) {
+				continue
+			}
+			kept = append(kept, child)
+		}
+		obj.Data.Children = kept
+	}
 }
 
 func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
@@ -68,9 +109,11 @@ func (p *CalProxy) download(src *Src) ([]*caldav.CalendarObject, error) {
 	}
 	calendar := calendars[0]
 
-	// queryStart of current week
-	queryStart := time.Now().AddDate(0, 0, -int(time.Now().Weekday()))
-	queryEnd := queryStart.AddDate(0, 0, 7*6) // 6 weeks
+	// Server-side query window, anchored at "now" and driven by the same
+	// WINDOW_PAST_WEEKS / WINDOW_FUTURE_WEEKS settings as filterWindow
+	// (which re-applies the window client-side after processing).
+	queryStart := time.Now().AddDate(0, 0, -7*p.config.WindowPastWeeks)
+	queryEnd := time.Now().AddDate(0, 0, 7*p.config.WindowFutureWeeks)
 
 	// print start date
 	logrus.Debugf("Looking for events from %s to %s", queryStart.Format(time.RFC3339), queryEnd.Format(time.RFC3339))
