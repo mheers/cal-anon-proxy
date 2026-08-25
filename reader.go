@@ -308,6 +308,8 @@ func processEvents(events []*caldav.CalendarObject, src *Src) ([]*caldav.Calenda
 				summaryValue := s.Value
 				logrus.Debugf("Event: %s", summaryValue)
 
+				fixInvalidTZIDs(event.Data.Children[x])
+
 				// DTSTAMP is required by RFC 5545 and by go-ical's encoder;
 				// some source feeds omit it, which would break /calendar.ics.
 				if event.Data.Children[x].Props.Get(ical.PropDateTimeStamp) == nil {
@@ -360,6 +362,55 @@ func summaryOfEvent(event *caldav.CalendarObject) string {
 		}
 	}
 	return ""
+}
+
+// fixInvalidTZIDs rewrites TZID parameters that are not valid IANA location
+// names. Outlook-synced events exported by Nextcloud carry globally-prefixed
+// TZIDs such as "/freeassociation.sourceforge.net/Europe/Berlin"; Go's
+// time.LoadLocation rejects every name starting with "/" ("time: invalid
+// location name"), so go-ical's Prop.DateTime fails and processEvents aborts
+// the whole feed at the first affected event. Strategy per affected property:
+//  1. keep valid IANA names as-is,
+//  2. try the MS-timezone translation table,
+//  3. try IANA-looking suffixes of the prefixed name ("/vendor/Europe/Berlin"
+//     → "Europe/Berlin"),
+//  4. drop the parameter entirely, so the property is interpreted in the
+//     feed-wide fallback timezone instead of failing the import.
+func fixInvalidTZIDs(vevent *ical.Component) {
+	for name := range vevent.Props {
+		for i := range vevent.Props[name] {
+			prop := &vevent.Props[name][i]
+			tzid := prop.Params.Get(ical.ParamTimezoneID)
+			if tzid == "" {
+				continue
+			}
+			if _, err := time.LoadLocation(tzid); err == nil {
+				continue // already a valid IANA name
+			}
+
+			fixed := ""
+			if translated := tzLib.TranslateMSTimezoneToIANA(tzid); translated != "" {
+				if _, err := time.LoadLocation(translated); err == nil {
+					fixed = translated
+				}
+			}
+			if fixed == "" {
+				parts := strings.Split(strings.TrimPrefix(tzid, "/"), "/")
+				for j := 1; j < len(parts)-1 && fixed == ""; j++ {
+					candidate := strings.Join(parts[j:], "/")
+					if _, err := time.LoadLocation(candidate); err == nil {
+						fixed = candidate
+					}
+				}
+			}
+
+			if fixed != "" {
+				prop.Params.Set(ical.ParamTimezoneID, fixed)
+			} else {
+				prop.Params.Del(ical.ParamTimezoneID)
+			}
+		}
+	}
 }
 
 func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName string) error {

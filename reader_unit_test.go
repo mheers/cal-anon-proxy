@@ -259,3 +259,79 @@ func TestNormalizeSourceURL(t *testing.T) {
 		})
 	}
 }
+
+func TestProcessEventsWithGloballyPrefixedTZID(t *testing.T) {
+	// Outlook-synced events (Nextcloud export) carry globally-prefixed TZIDs.
+	// time.LoadLocation rejects every name starting with "/", so before the
+	// fix a single such event aborted the whole feed ("time: invalid location
+	// name") and the proxy served nothing but the events parsed before it.
+	cal := ical.NewCalendar()
+
+	ev := ical.NewComponent(ical.CompEvent)
+	ev.Props.SetText(ical.PropUID, "outlook-synced-1")
+	ev.Props.SetText(ical.PropSummary, "Outlook synced")
+
+	start := ical.NewProp(ical.PropDateTimeStart)
+	start.Value = "20260615T180000" // 18:00 Europe/Berlin (UTC+2) → 16:00Z
+	start.Params = ical.Params{
+		ical.ParamTimezoneID: []string{"/freeassociation.sourceforge.net/Europe/Berlin"},
+	}
+	ev.Props.Add(start)
+
+	end := ical.NewProp(ical.PropDateTimeEnd)
+	end.Value = "20260615T190000"
+	end.Params = ical.Params{
+		ical.ParamTimezoneID: []string{"/freeassociation.sourceforge.net/Europe/Berlin"},
+	}
+	ev.Props.Add(end)
+
+	cal.Children = append(cal.Children, ev)
+
+	out, err := processEvents(
+		[]*caldav.CalendarObject{{Path: "/test.ics", Data: cal}},
+		&Src{},
+	)
+	require.NoError(t, err)
+	require.Len(t, out[0].Data.Children, 1)
+
+	startProp := out[0].Data.Children[0].Props.Get(ical.PropDateTimeStart)
+	require.NotNil(t, startProp)
+	require.Equal(t, "20260615T160000Z", startProp.Value) // converted to UTC
+
+	gotTime, err := startProp.DateTime(time.UTC)
+	require.NoError(t, err)
+	require.Equal(t, "2026-06-15T16:00:00Z", gotTime.UTC().Format(time.RFC3339))
+
+	endProp := out[0].Data.Children[0].Props.Get(ical.PropDateTimeEnd)
+	require.NotNil(t, endProp)
+	require.Equal(t, "20260615T170000Z", endProp.Value)
+}
+
+func TestProcessEventsDropsUnresolvableTZID(t *testing.T) {
+	cal := ical.NewCalendar()
+
+	ev := ical.NewComponent(ical.CompEvent)
+	ev.Props.SetText(ical.PropUID, "unknown-zone-1")
+	ev.Props.SetText(ical.PropSummary, "Unknown zone")
+
+	start := ical.NewProp(ical.PropDateTimeStart)
+	start.Value = "20260615T180000"
+	start.Params = ical.Params{
+		ical.ParamTimezoneID: []string{"/vendor.example.com/Mars/Olympus"},
+	}
+	ev.Props.Add(start)
+	cal.Children = append(cal.Children, ev)
+
+	out, err := processEvents(
+		[]*caldav.CalendarObject{{Path: "/test.ics", Data: cal}},
+		&Src{},
+	)
+	require.NoError(t, err)
+
+	startProp := out[0].Data.Children[0].Props.Get(ical.PropDateTimeStart)
+	require.NotNil(t, startProp)
+	// Unresolvable zone: TZID dropped, value interpreted in the fallback
+	// timezone and emitted as UTC instead of failing the import.
+	require.Empty(t, startProp.Params.Get(ical.ParamTimezoneID))
+	require.True(t, strings.HasSuffix(startProp.Value, "Z"))
+}
