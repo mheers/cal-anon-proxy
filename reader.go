@@ -14,7 +14,6 @@ import (
 	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav"
 	"github.com/emersion/go-webdav/caldav"
-	tzLib "github.com/mheers/go-tz"
 	"github.com/sirupsen/logrus"
 )
 
@@ -501,7 +500,7 @@ func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName strin
 	// Translate Microsoft timezone names (e.g. "Eastern Standard Time") to IANA before parsing
 	tzID := prop.Params.Get(ical.PropTimezoneID)
 	if tzID != "" {
-		ianaName := tzLib.TranslateMSTimezoneToIANA(tzID)
+		ianaName := translateMSTimezoneToIANA(tzID)
 		loc, err := time.LoadLocation(ianaName)
 		if err == nil {
 			tz = loc
