@@ -335,3 +335,53 @@ func TestProcessEventsDropsUnresolvableTZID(t *testing.T) {
 	require.Empty(t, startProp.Params.Get(ical.ParamTimezoneID))
 	require.True(t, strings.HasSuffix(startProp.Value, "Z"))
 }
+
+func TestProcessEventsAnonWhitelist(t *testing.T) {
+	// Anonymized mode must not leak private data through vendor extensions:
+	// Outlook-synced events carry Teams join URLs and participant identities
+	// in X-MICROSOFT-* properties and HTML descriptions in X-ALT-DESC.
+	cal := ical.NewCalendar()
+
+	ev := ical.NewComponent(ical.CompEvent)
+	ev.Props.SetText(ical.PropUID, "teams-event-1")
+	ev.Props.SetText(ical.PropSummary, "Confidential client call")
+	desc := ical.NewProp(ical.PropDescription)
+	desc.Value = "Discuss secret project"
+	ev.Props.Add(desc)
+	xalt := ical.NewProp("X-ALT-DESC")
+	xalt.Params = ical.Params{"FMTTYPE": []string{"text/html"}}
+	xalt.Value = "<html>secret project notes</html>"
+	ev.Props.Add(xalt)
+	teams := ical.NewProp("X-MICROSOFT-SKYPETEAMSMEETINGURL")
+	teams.Value = "https://teams.microsoft.com/l/meetup-join/secret"
+	ev.Props.Add(teams)
+	start := ical.NewProp(ical.PropDateTimeStart)
+	start.Value = "20260615T160000Z"
+	ev.Props.Add(start)
+	end := ical.NewProp(ical.PropDateTimeEnd)
+	end.Value = "20260615T170000Z"
+	ev.Props.Add(end)
+	cal.Children = append(cal.Children, ev)
+
+	out, err := processEvents(
+		[]*caldav.CalendarObject{{Path: "/test.ics", Data: cal}},
+		&Src{Anon: true},
+	)
+	require.NoError(t, err)
+
+	props := out[0].Data.Children[0].Props
+	require.Equal(t, "unavailable", props.Get(ical.PropSummary).Value)
+
+	// Schedule-rendering core is intact.
+	require.NotNil(t, props.Get(ical.PropUID))
+	require.NotNil(t, props.Get(ical.PropDateTimeStart))
+	require.NotNil(t, props.Get(ical.PropDateTimeEnd))
+
+	// Everything else — including unknown vendor extensions — is gone.
+	for _, leaked := range []string{
+		ical.PropDescription, "X-ALT-DESC", "X-MICROSOFT-SKYPETEAMSMEETINGURL",
+		ical.PropLocation, ical.PropAttendee, ical.PropOrganizer,
+	} {
+		require.Nil(t, props.Get(leaked), "property %s must be dropped", leaked)
+	}
+}

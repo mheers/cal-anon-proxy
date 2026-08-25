@@ -248,6 +248,27 @@ func decodeGoogleCalendarCID(cid string) (string, error) {
 	return "", fmt.Errorf("unable to decode google calendar cid")
 }
 
+// anonKeepProps lists the only properties an anonymized (SRC_*_ANON=true)
+// event keeps: what a calendar needs to display busy time. Anything not
+// listed is dropped, so unknown vendor extensions can never leak private
+// data (titles are additionally forced to "unavailable").
+var anonKeepProps = map[string]bool{
+	ical.PropUID:            true,
+	ical.PropDateTimeStamp:  true,
+	ical.PropDateTimeStart:  true,
+	ical.PropDateTimeEnd:    true,
+	ical.PropDuration:       true,
+	ical.PropRecurrenceRule: true,
+	ical.PropExceptionDates: true,
+	ical.PropRecurrenceID:   true,
+	ical.PropSummary:        true,
+	ical.PropSequence:       true,
+	ical.PropTransparency:   true,
+	ical.PropStatus:         true,
+	ical.PropCreated:        true,
+	ical.PropLastModified:   true,
+}
+
 func processEvents(events []*caldav.CalendarObject, src *Src) ([]*caldav.CalendarObject, error) {
 	calEvents := []*caldav.CalendarObject{}
 
@@ -296,8 +317,17 @@ func processEvents(events []*caldav.CalendarObject, src *Src) ([]*caldav.Calenda
 
 				if src.Anon {
 					event.Data.Children[x].Props.SetText(ical.PropSummary, "unavailable")
-					for _, prop := range cleanOutProps {
-						event.Data.Children[x].Props.SetText(prop, "")
+					// Whitelist: in anonymized mode keep only the properties a
+					// calendar needs to render busy time. Everything else is
+					// dropped outright — blacklisting individual fields is not
+					// enough, because Outlook extensions such as
+					// X-MICROSOFT-SKYPETEAMSMEETINGURL or X-ALT-DESC leak
+					// join links and participant identities.
+					vevent := event.Data.Children[x]
+					for name := range vevent.Props {
+						if !anonKeepProps[name] {
+							delete(vevent.Props, name)
+						}
 					}
 				}
 
