@@ -31,6 +31,8 @@ func main() {
 	}
 
 	rootCmd.AddCommand(serverCmd)
+	rootCmd.AddCommand(newGoogleCloneCmd())
+	rootCmd.AddCommand(newGoogleLoginCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		logrus.Error(err)
@@ -55,9 +57,16 @@ func runServer() {
 	}
 
 	go func() {
+		// Guard against SRC_UPDATE_INTERVAL being unset or empty (e.g. passed
+		// as an empty string by docker-compose): time.NewTicker panics on <= 0.
+		interval := config.SrcUpdateInterval
+		if interval <= 0 {
+			interval = 5
+		}
+
 		updateEvents(proxy, calDavHandler)
 
-		ticker := time.NewTicker(time.Duration(config.SrcUpdateInterval) * time.Minute)
+		ticker := time.NewTicker(time.Duration(interval) * time.Minute)
 		for range ticker.C {
 			updateEvents(proxy, calDavHandler)
 		}

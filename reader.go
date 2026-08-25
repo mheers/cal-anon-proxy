@@ -241,13 +241,15 @@ func decodeGoogleCalendarCID(cid string) (string, error) {
 func processEvents(events []*caldav.CalendarObject, src *Src) ([]*caldav.CalendarObject, error) {
 	calEvents := []*caldav.CalendarObject{}
 
+	// Fallback location for floating (timezone-less) event times; loaded once
+	// instead of per event. toTZ ultimately emits UTC for all timed events.
+	tz, err := time.LoadLocation("Europe/London")
+	if err != nil {
+		return nil, err
+	}
+
 	for _, eventFromQuery := range events {
 		event := eventFromQuery
-
-		tz, err := time.LoadLocation("Europe/London")
-		if err != nil {
-			return nil, err
-		}
 
 		for x, vevent := range event.Data.Children {
 			if vevent.Name == "VEVENT" {
@@ -295,6 +297,12 @@ func processEvents(events []*caldav.CalendarObject, src *Src) ([]*caldav.Calenda
 				}
 				summaryValue := s.Value
 				logrus.Debugf("Event: %s", summaryValue)
+
+				// DTSTAMP is required by RFC 5545 and by go-ical's encoder;
+				// some source feeds omit it, which would break /calendar.ics.
+				if event.Data.Children[x].Props.Get(ical.PropDateTimeStamp) == nil {
+					event.Data.Children[x].Props.SetDateTime(ical.PropDateTimeStamp, time.Now().UTC())
+				}
 
 				event.Data.Children[x].Props.Del(ical.PropTimezoneName)
 				event.Data.Children[x].Props.Del(ical.PropTimezoneID)
@@ -410,19 +418,13 @@ func harmonizeDurationAndEnd(event *caldav.CalendarObject, x int) error {
 		return err
 	}
 
-	endTime := startTime
-
 	durationTime, err := duration.Duration()
 	if err != nil {
 		return err
 	}
 
-	if durationTime == 0 {
-		return nil
-	}
-
-	if endTime.Sub(endTime.Add(durationTime)) != 0 {
-		event.Data.Children[x].Props.SetDateTime(ical.PropDateTimeEnd, endTime.Add(durationTime))
+	if durationTime != 0 {
+		event.Data.Children[x].Props.SetDateTime(ical.PropDateTimeEnd, startTime.Add(durationTime))
 		event.Data.Children[x].Props.Del(ical.PropDuration)
 	}
 

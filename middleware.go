@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -25,8 +26,10 @@ func (a *auth) middleware(actualHandler http.Handler) http.Handler {
 		logrus.Infof("%s %s", r.Method, r.URL.Path)
 
 		username, password, ok := r.BasicAuth()
-		// check username and password: adjust the logic to your system (do NOT store passwords in plaintext)
-		if !ok || username != a.username || password != a.password {
+		// Constant-time comparison to avoid leaking credentials via timing
+		userOK := subtle.ConstantTimeCompare([]byte(username), []byte(a.username)) == 1
+		passOK := subtle.ConstantTimeCompare([]byte(password), []byte(a.password)) == 1
+		if !ok || !userOK || !passOK {
 			// abort the request handling on failure
 			w.Header().Add("WWW-Authenticate", `Basic realm="Please authenticate", charset="UTF-8"`)
 			http.Error(w, "HTTP Basic auth is required", http.StatusUnauthorized)

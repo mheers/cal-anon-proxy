@@ -9,3 +9,5 @@ __htmgo
 dist
 events.json
 *.ics
+!testdata/*.ics
+cal-anon-proxy

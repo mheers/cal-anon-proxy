@@ -8,7 +8,10 @@ import (
 )
 
 type Config struct {
-	SrcUpdateInterval int `env:"SRC_UPDATE_INTERVAL" default:"5"`
+	// NOTE: go-envconfig expects defaults inline in the env tag ("default=5"),
+	// NOT in a separate default:"..." struct tag — the latter is silently
+	// ignored and left the interval at 0, panicking NewTicker on startup.
+	SrcUpdateInterval int `env:"SRC_UPDATE_INTERVAL,default=5"`
 
 	Src1URL      string `env:"SRC_1_URL"`
 	Src1Anon     bool   `env:"SRC_1_ANON"`

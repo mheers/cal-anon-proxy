@@ -8,6 +8,7 @@ all: build
 
 ## build: build the Docker image
 build:
+	go build -o cal-anon-proxy .
 	docker build -t $(IMAGE):$(TAG) .
 
 ## push: push the Docker image to the registry

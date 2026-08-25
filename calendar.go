@@ -12,6 +12,7 @@ import (
 
 	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav/caldav"
+	"github.com/sirupsen/logrus"
 )
 
 func currentUsername(ctx context.Context) (string, error) {
@@ -180,7 +181,8 @@ func (h *CalDavHandler) ServeICS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", ical.MIMEType)
 	if err := ical.NewEncoder(w).Encode(cal); err != nil {
-		http.Error(w, "failed to encode calendar: "+err.Error(), http.StatusInternalServerError)
+		// Headers/body may already be flushed — only logging is possible here.
+		logrus.Errorf("failed to encode calendar: %v", err)
 	}
 }
 
