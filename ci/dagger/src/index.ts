@@ -43,6 +43,9 @@ export class Ci {
     const targetContainer = dag.container().from(baseImage)
       .withFile("/src/dist/cal-anon-proxy", buildContainer.file("/src/dist/cal-anon-proxy"))
       .withEntrypoint(["/src/dist/cal-anon-proxy"])
+      // mirror the Dockerfile's CMD ["server"] — without it the cobra root
+      // command prints help and exits immediately
+      .withDefaultArgs(["server"])
 
     const imageDigest = targetContainer
       .withRegistryAuth(targetImage, username, registryToken)
