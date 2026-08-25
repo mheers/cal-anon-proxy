@@ -163,7 +163,9 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
 - [x] publish calendar
 - [x] add optional public authentication
 - [x] auto refresh source calendars
-- [ ] when a source event is deleted, delete the event from the proxy (thunderbird still shows the event)
+- [x] when a source event is deleted, delete the event from the proxy (thunderbird still shows the event)
+    - per-source refresh: one failing source no longer freezes updates for all others (last known good events are served per source)
+    - stable `/caldav/<uid>.ics` hrefs + content ETags so clients detect additions, changes and deletions on refresh
 - [x] frontend with calendar view
     - [x] fullcalendar
     - [x] htmgo
@@ -172,6 +174,10 @@ dagger call build-and-push-image --src ../ --registry-token=env:REGISTRY_ACCESS_
     - [x] show only working hours +/- 2 hours
 - [x] ci/cd pipeline
 - [x] fix recurring events (only first event is shown)
-- [ ] compact overlapping events
-- [ ] handle "EXDATE"s
+- [ ] compact overlapping events (implemented, default on — set `COMPACT_OVERLAPPING_EVENTS=false` to disable)
+    - overlapping/touching non-recurring events merge into contiguous busy blocks
+    - recurring events and recurrence overrides are left untouched
+- [x] handle "EXDATE"s
+    - EXDATE / RECURRENCE-ID are normalized to UTC so excluded occurrences really disappear
+    - `STATUS:CANCELLED` overrides remove their occurrence from `/events.json`
 - [x] set UTC timezone for **all** events

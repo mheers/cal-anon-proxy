@@ -135,6 +135,66 @@ func TestServeEventsJSON_AllDayEvent(t *testing.T) {
 	require.Equal(t, "2026-03-26", got[0].End, "all-day end must be date-only")
 }
 
+func TestServeEventsJSON_ExDateRemovesOccurrence(t *testing.T) {
+	h := loadFixtureHandler(t, "event_exdate.ics")
+
+	got := serveEventsJSON(t, h,
+		"?start=2026-03-01T00:00:00&end=2026-04-01T00:00:00&timeZone=Europe/London")
+
+	require.Len(t, got, 3, "EXDATE must remove the second weekly occurrence")
+	for _, ev := range got {
+		require.NotContains(t, ev.ID, "20260309T090000Z",
+			"the EXDATE'd occurrence (2026-03-09) must not be served")
+	}
+}
+
+func TestServeEventsJSON_CancelledOverrideRemovesOccurrence(t *testing.T) {
+	h := loadFixtureHandler(t, "event_cancelled_override.ics")
+
+	got := serveEventsJSON(t, h,
+		"?start=2026-03-01T00:00:00&end=2026-04-01T00:00:00&timeZone=Europe/London")
+
+	require.Len(t, got, 2, "STATUS:CANCELLED override must delete its occurrence")
+	for _, ev := range got {
+		require.NotContains(t, ev.ID, "20260303T080000Z",
+			"the cancelled occurrence (2026-03-03) must not be served")
+	}
+}
+
+func TestNormalizedRecurrenceKey(t *testing.T) {
+	mk := func(value string) *ical.Prop {
+		p := ical.NewProp(ical.PropRecurrenceID)
+		p.Value = value
+		return p
+	}
+	withTZ := func(value, tzid string) *ical.Prop {
+		p := mk(value)
+		p.Params.Set(ical.PropTimezoneID, tzid)
+		return p
+	}
+	asDate := func(value string) *ical.Prop {
+		p := mk(value)
+		p.SetValueType(ical.ValueDate)
+		return p
+	}
+
+	tests := []struct {
+		name string
+		prop *ical.Prop
+		want string
+	}{
+		{"utc z-form", mk("20260303T080000Z"), "20260303T080000Z"},
+		{"tzid form", withTZ("20260303T090000", "America/New_York"), "20260303T140000Z"},
+		{"floating treated as provided loc", mk("20260303T080000"), "20260303T080000Z"},
+		{"date-only", asDate("20260303"), "20260303T000000Z"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, normalizedRecurrenceKey(tc.prop))
+		})
+	}
+}
+
 func TestServeICS_MergesVEVENTs(t *testing.T) {
 	h := loadFixtureHandler(t, "event_with_dtend.ics", "event_recurring.ics")
 

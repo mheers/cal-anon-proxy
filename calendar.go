@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -123,29 +127,55 @@ func (h *CalDavHandler) SetEvents(events []*caldav.CalendarObject) {
 	}
 	calendars := []caldav.Calendar{sessionsCal}
 
-	// Build individual objects per event (OUTSIDE lock)
+	// Build individual objects per VEVENT (OUTSIDE lock).
+	// Paths are ALWAYS derived from the VEVENT UID under h.path. Upstream
+	// paths (CalDAV hrefs or full .ics URLs) must not leak into REPORT
+	// responses — clients key their cached items on those hrefs, and
+	// inconsistent/unreachable hrefs prevent them from detecting removed
+	// events. Multi-VEVENT resources (e.g. whole .ics feeds) are split so
+	// every event lives on its own stable href: when an event disappears,
+	// its resource disappears from listings and clients delete it locally.
+	// Content ETags let clients detect changes to remaining events.
 	objects := make([]caldav.CalendarObject, 0, len(events))
+	pathUseCount := make(map[string]int)
 	for i, event := range events {
-		objPath := event.Path
-		if objPath == "" {
-			// Try UID from first VEVENT child
-			uid := ""
-			if len(event.Data.Children) > 0 {
-				uidProp := event.Data.Children[0].Props.Get(ical.PropUID)
-				if uidProp != nil {
-					uid = uidProp.Value
-				}
-			}
-			if uid != "" {
-				objPath = fmt.Sprintf("%s%s.ics", h.path, uid)
-			} else {
-				objPath = fmt.Sprintf("%s%d.ics", h.path, i)
-			}
+		if event.Data == nil {
+			continue
 		}
-		objects = append(objects, caldav.CalendarObject{
-			Path: objPath,
-			Data: event.Data,
-		})
+		for _, child := range event.Data.Children {
+			if child.Name != ical.CompEvent {
+				continue
+			}
+
+			uid := ""
+			if uidProp := child.Props.Get(ical.PropUID); uidProp != nil {
+				uid = strings.TrimSpace(uidProp.Value)
+			}
+			if uid == "" {
+				uid = fmt.Sprintf("event-%d", i)
+			}
+			basePath := fmt.Sprintf("%s%s.ics", h.path, sanitizeUIDForPath(uid))
+
+			objPath := basePath
+			if n := pathUseCount[basePath]; n > 0 {
+				objPath = fmt.Sprintf("%s-%d.ics", strings.TrimSuffix(basePath, ".ics"), n+1)
+			}
+			pathUseCount[basePath]++
+
+			cal := ical.NewCalendar()
+			cal.Props.SetText("VERSION", "2.0")
+			cal.Props.SetText("PRODID", "-//cal-anon-proxy//EN")
+			cal.Children = append(cal.Children, child)
+
+			obj := caldav.CalendarObject{Path: objPath, Data: cal}
+			var buf bytes.Buffer
+			if err := ical.NewEncoder(&buf).Encode(cal); err == nil && buf.Len() > 0 {
+				sum := sha1.Sum(buf.Bytes())
+				obj.ETag = hex.EncodeToString(sum[:])
+				obj.ContentLength = int64(buf.Len())
+			}
+			objects = append(objects, obj)
+		}
 	}
 
 	newBackend := &calendarBackend{
@@ -274,8 +304,8 @@ func (h *CalDavHandler) ServeEventsJSON(w http.ResponseWriter, r *http.Request) 
 				groups[key] = &uidGroup{overrides: map[string]*ical.Component{}}
 			}
 			if child.Props.Get(ical.PropRecurrenceID) != nil {
-				recID := child.Props.Get(ical.PropRecurrenceID).Value
-				groups[key].overrides[recID] = child
+				recKey := normalizedRecurrenceKey(child.Props.Get(ical.PropRecurrenceID))
+				groups[key].overrides[recKey] = child
 			} else {
 				groups[key].base = child
 			}
@@ -360,6 +390,11 @@ func (h *CalDavHandler) ServeEventsJSON(w http.ResponseWriter, r *http.Request) 
 			// Check if this occurrence has a RECURRENCE-ID override.
 			occKey := occ.UTC().Format("20060102T150405Z")
 			if override, ok := g.overrides[occKey]; ok {
+				// A cancelled override (STATUS:CANCELLED) means the source
+				// deleted this single occurrence — treat it like an EXDATE.
+				if isCancelledComponent(override) {
+					continue
+				}
 				if overrideStart := override.Props.Get(ical.PropDateTimeStart); overrideStart != nil {
 					if st, err := overrideStart.DateTime(time.UTC); err == nil {
 						occ = st
@@ -410,6 +445,25 @@ func (h *CalDavHandler) ServeEventsJSON(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(out)
 }
 
+// normalizedRecurrenceKey maps a RECURRENCE-ID property to the same UTC
+// compact form used for expanded occurrence keys, regardless of whether the
+// source emitted it as UTC, TZID-qualified, floating, or date-only.
+func normalizedRecurrenceKey(p *ical.Prop) string {
+	value := strings.TrimSpace(p.Value)
+	if p.ValueType() == ical.ValueDate {
+		return value + "T000000Z"
+	}
+	if t, err := p.DateTime(time.UTC); err == nil {
+		return t.UTC().Format("20060102T150405Z")
+	}
+	return strings.ToUpper(value)
+}
+
+func isCancelledComponent(comp *ical.Component) bool {
+	s := comp.Props.Get(ical.PropStatus)
+	return s != nil && strings.EqualFold(strings.TrimSpace(s.Value), "CANCELLED")
+}
+
 func NewCalDavHandler(path string) *CalDavHandler {
 	return &CalDavHandler{
 		Handler: &caldav.Handler{
@@ -417,4 +471,34 @@ func NewCalDavHandler(path string) *CalDavHandler {
 		},
 		path: path,
 	}
+}
+
+// firstVEVENTUID returns the UID of the first VEVENT child, or "".
+func firstVEVENTUID(obj *caldav.CalendarObject) string {
+	if obj == nil || obj.Data == nil {
+		return ""
+	}
+	for _, child := range obj.Data.Children {
+		if child.Name != ical.CompEvent {
+			continue
+		}
+		if uidProp := child.Props.Get(ical.PropUID); uidProp != nil {
+			if uid := strings.TrimSpace(uidProp.Value); uid != "" {
+				return uid
+			}
+		}
+	}
+	return ""
+}
+
+// sanitizeUIDForPath replaces characters that are unsafe in URL path segments
+// so UIDs map to stable, well-formed hrefs.
+func sanitizeUIDForPath(uid string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case '/', '\\', '?', '#', '%', ' ', ':':
+			return '_'
+		}
+		return r
+	}, uid)
 }

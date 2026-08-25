@@ -8,6 +8,7 @@ services:
       - "3000:3000"
     environment:
       - "SRC_UPDATE_INTERVAL=${SRC_UPDATE_INTERVAL}"
+      - "COMPACT_OVERLAPPING_EVENTS=${COMPACT_OVERLAPPING_EVENTS}"
       - "SRC_1_URL=${SRC_1_URL}"
       - "SRC_1_ANON=${SRC_1_ANON}"
       - "SRC_1_USERNAME=${SRC_1_USERNAME}"

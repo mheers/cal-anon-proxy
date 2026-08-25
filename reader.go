@@ -19,13 +19,35 @@ import (
 
 func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
 	events := []*caldav.CalendarObject{}
+	var failures []error
+
 	for _, src := range p.config.Srcs() {
 		srcEvents, err := p.download(src)
 		if err != nil {
-			return nil, err
+			failures = append(failures, fmt.Errorf("source %s: %w", src.URL, err))
+
+			// Serve the last successfully downloaded events for this source
+			// instead of aborting the whole refresh. A failing source must
+			// not freeze updates (and deletion propagation) for all others.
+			if cached := p.cachedEvents(src.URL); len(cached) > 0 {
+				logrus.Warnf("source %s failed (%v), serving %d cached events", src.URL, err, len(cached))
+				events = append(events, cached...)
+			}
+			continue
 		}
+
+		p.setCachedEvents(src.URL, srcEvents)
 		events = append(events, srcEvents...)
 	}
+
+	for _, err := range failures {
+		logrus.Error(err)
+	}
+
+	if len(events) == 0 && len(failures) > 0 {
+		return nil, failures[0]
+	}
+
 	p.filterWindow(events)
 	return events, nil
 }
@@ -406,6 +428,19 @@ func processEvents(events []*caldav.CalendarObject, src *Src) ([]*caldav.Calenda
 				if err := toTZ(event, x, tz, ical.PropDateTimeStamp); err != nil {
 					return nil, err
 				}
+
+				// Normalize recurrence metadata to UTC as well. EXDATE and
+				// RECURRENCE-ID keep their original timezone otherwise, so a
+				// floating/TZID-based EXDATE no longer matches the converted
+				// UTC DTSTART instants — excluded occurrences would still be
+				// served (and shown by clients).
+				if err := toUTCAll(event, x, tz, ical.PropExceptionDates); err != nil {
+					return nil, err
+				}
+
+				if err := toTZ(event, x, tz, ical.PropRecurrenceID); err != nil {
+					return nil, err
+				}
 			}
 		}
 
@@ -461,7 +496,7 @@ func fixInvalidTZIDs(vevent *ical.Component) {
 			}
 
 			fixed := ""
-			if translated := tzLib.TranslateMSTimezoneToIANA(tzid); translated != "" {
+			if translated := translateMSTimezoneToIANA(tzid); translated != "" {
 				if _, err := time.LoadLocation(translated); err == nil {
 					fixed = translated
 				}
@@ -486,8 +521,7 @@ func fixInvalidTZIDs(vevent *ical.Component) {
 }
 
 func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName string) error {
-	eventProps := event.Data.Children[x].Props
-	prop := eventProps.Get(propName)
+	prop := event.Data.Children[x].Props.Get(propName)
 	if prop == nil {
 		// Property is optional (e.g. DTSTAMP) — nothing to convert
 		return nil
@@ -497,29 +531,77 @@ func toTZ(event *caldav.CalendarObject, x int, tz *time.Location, propName strin
 		return nil
 	}
 
-	// Translate Microsoft timezone names (e.g. "Eastern Standard Time") to IANA before parsing
-	tzID := prop.Params.Get(ical.PropTimezoneID)
-	if tzID != "" {
-		ianaName := translateMSTimezoneToIANA(tzID)
-		loc, err := time.LoadLocation(ianaName)
-		if err == nil {
-			tz = loc
-		}
-		prop.Params.Set(ical.PropTimezoneID, ianaName)
-	}
-
-	dateTime, err := prop.DateTime(tz)
+	dateTime, err := propToUTC(prop, tz)
 	if err != nil {
 		return err
 	}
 
 	// Emit as UTC ("Z" form) — unambiguous and allows FullCalendar to display
 	// in any viewer-selected timezone correctly.
-	utc := dateTime.UTC()
-	prop.Params.Del(ical.PropTimezoneID)
-	event.Data.Children[x].Props.SetDateTime(propName, utc)
-
+	event.Data.Children[x].Props.SetDateTime(propName, dateTime)
 	return nil
+}
+
+// toUTCAll converts every value of every property named propName (EXDATE can
+// appear multiple times and carry comma-separated lists) to UTC "Z" form.
+// VALUE=DATE values are left untouched so all-day recurrence metadata keeps
+// its date-only form.
+func toUTCAll(event *caldav.CalendarObject, x int, tz *time.Location, propName string) error {
+	props := event.Data.Children[x].Props[propName]
+	for i := range props {
+		prop := &props[i]
+		if prop.ValueType() == ical.ValueDate {
+			continue
+		}
+
+		parts := strings.Split(prop.Value, ",")
+		out := make([]string, 0, len(parts))
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			single := *prop
+			single.Value = part
+			dateTime, err := propToUTC(&single, tz)
+			if err != nil {
+				return err
+			}
+			out = append(out, dateTime.Format("20060102T150405Z"))
+		}
+		if len(out) == 0 {
+			continue
+		}
+
+		prop.Params.Del(ical.PropTimezoneID)
+		prop.SetValueType(ical.ValueDateTime)
+		prop.Value = strings.Join(out, ",")
+	}
+	return nil
+}
+
+// propToUTC parses a date-time property honoring TZID params (with Microsoft
+// timezone name translation) or falling back to tz for floating times, and
+// returns the equivalent UTC instant.
+func propToUTC(prop *ical.Prop, tz *time.Location) (time.Time, error) {
+	loc := tz
+	tzID := prop.Params.Get(ical.PropTimezoneID)
+	if tzID != "" {
+		ianaName := translateMSTimezoneToIANA(tzID)
+		if loaded, err := time.LoadLocation(ianaName); err == nil {
+			loc = loaded
+			// go-ical's Prop.DateTime resolves the TZID param itself via
+			// time.LoadLocation, which fails on raw MS timezone names —
+			// feed it the translated IANA name instead.
+			prop.Params.Set(ical.PropTimezoneID, ianaName)
+		}
+	}
+
+	dateTime, err := prop.DateTime(loc)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return dateTime.UTC(), nil
 }
 
 func harmonizeDurationAndEnd(event *caldav.CalendarObject, x int) error {

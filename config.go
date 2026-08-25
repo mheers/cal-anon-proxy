@@ -20,6 +20,10 @@ type Config struct {
 	WindowPastWeeks   int `env:"WINDOW_PAST_WEEKS,default=4"`
 	WindowFutureWeeks int `env:"WINDOW_FUTURE_WEEKS,default=8"`
 
+	// CompactOverlappingEvents merges overlapping/touching non-recurring
+	// events into contiguous busy blocks (see compact.go).
+	CompactOverlappingEvents bool `env:"COMPACT_OVERLAPPING_EVENTS,default=true"`
+
 	Src1URL      string `env:"SRC_1_URL"`
 	Src1Anon     bool   `env:"SRC_1_ANON"`
 	Src1Username string `env:"SRC_1_USERNAME"`
