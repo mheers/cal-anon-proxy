@@ -1,7 +1,8 @@
 # Build stage
 FROM golang:1.26-alpine AS builder
 
-RUN apk update && apk add --no-cache git wget gcompat
+# libstdc++/libgcc are required by the tailwind v4 standalone binary (Bun runtime)
+RUN apk update && apk add --no-cache git wget gcompat libstdc++ libgcc
 
 WORKDIR /src
 
