@@ -7,6 +7,11 @@ import (
 	"os"
 	"time"
 
+	// Embed the IANA timezone database: the runtime image (alpine) ships no
+	// /usr/share/zoneinfo, and processEvents/toTZ/ServeEventsJSON call
+	// time.LoadLocation — without this they fail with "invalid location name".
+	_ "time/tzdata"
+
 	hConfig "github.com/maddalax/htmgo/framework/config"
 	"github.com/maddalax/htmgo/framework/h"
 	"github.com/maddalax/htmgo/framework/service"
