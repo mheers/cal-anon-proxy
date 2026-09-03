@@ -10,6 +10,58 @@ This is a simple CalDAV server written in Go that proxies read requests to a rea
 docker compose up
 ```
 
+## Multitenancy
+
+Each tenant has a short name (e.g. `marcel`, `josephine`) and gets its own
+isolated endpoints:
+
+| Tenant `marcel` | Serves |
+|---|---|
+| `GET /marcel` | WebUI (unless toggled off) |
+| `ANY /marcel/caldav/` | CalDAV endpoint (Thunderbird: `http://localhost:3000/marcel/caldav/`) |
+| `GET /marcel/calendar.ics` | Merged ICS feed |
+| `GET /marcel/events.json` | FullCalendar JSON feed for the WebUI |
+
+Tenants are configured with indexed env vars (`TENANT_1_*`, `TENANT_2_*`, …,
+up to 64, numbering need not be contiguous):
+
+```bash
+TENANT_1_NAME=marcel
+TENANT_1_WEBUI_ENABLED=true            # default true; false -> /marcel 404s, data endpoints keep working
+TENANT_1_SRC_1_URL=https://…?export
+TENANT_1_SRC_1_ANON=false
+TENANT_1_SRC_1_USERNAME=
+TENANT_1_SRC_1_PASSWORD=
+TENANT_1_DST_AUTH_ENABLED=true         # basic auth for /marcel/caldav/ only
+TENANT_1_DST_USERNAME=
+TENANT_1_DST_PASSWORD=
+
+TENANT_2_NAME=josephine
+TENANT_2_WEBUI_ENABLED=false
+TENANT_2_SRC_1_URL=https://…?export
+```
+
+Notes:
+
+- Up to 4 sources per tenant (`TENANT_<N>_SRC_1..4_*`), same shape as the
+  legacy `SRC_1..4_*` vars.
+- Each tenant has its own source proxy and event store: one tenant's failing
+  source never freezes another tenant's updates.
+- `WINDOW_PAST_WEEKS`, `WINDOW_FUTURE_WEEKS`, `COMPACT_OVERLAPPING_EVENTS`
+  and `SRC_UPDATE_INTERVAL` stay global for all tenants.
+- Tenant names must be lowercase alphanumeric with dashes (max 63 chars) and
+  must not be `public`, `caldav`, `calendar.ics`, `events.json` or
+  `.well-known`.
+- When any `TENANT_*_NAME` is set, the legacy routes (`/`, `/caldav/`,
+  `/calendar.ics`, `/events.json`) alias the **first** tenant so existing
+  CalDAV clients keep working, and legacy `SRC_*/DST_*` sources are ignored.
+  With no `TENANT_*_NAME` set, the server behaves exactly as before
+  (single-tenant mode).
+- Security: as in single-tenant mode, only `/caldav/` (per tenant:
+  `/<name>/caldav/`) requires basic auth when enabled; `/calendar.ics` and
+  `/events.json` remain **public by design**. Use `TENANT_<N>_SRC_*_ANON=true`
+  if titles must not be exposed.
+
 ## Visibility window
 
 Only events inside the window are served (defaults: 4 weeks back, 8 weeks

@@ -6,7 +6,10 @@ import (
 )
 
 func RootPage(children ...h.Ren) *h.Page {
-	title := "Public Calendar"
+	return RootPageWithTitle("Public Calendar", children...)
+}
+
+func RootPageWithTitle(title string, children ...h.Ren) *h.Page {
 	description := "a public calendar"
 	author := "Marcel Heers"
 

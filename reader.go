@@ -30,7 +30,11 @@ func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
 			// instead of aborting the whole refresh. A failing source must
 			// not freeze updates (and deletion propagation) for all others.
 			if cached := p.cachedEvents(src.URL); len(cached) > 0 {
-				logrus.Warnf("source %s failed (%v), serving %d cached events", src.URL, err, len(cached))
+				if p.tenant != "" {
+					logrus.Warnf("tenant %q: source %s failed (%v), serving %d cached events", p.tenant, src.URL, err, len(cached))
+				} else {
+					logrus.Warnf("source %s failed (%v), serving %d cached events", src.URL, err, len(cached))
+				}
 				events = append(events, cached...)
 			}
 			continue
@@ -41,7 +45,11 @@ func (p *CalProxy) downloadAll() ([]*caldav.CalendarObject, error) {
 	}
 
 	for _, err := range failures {
-		logrus.Error(err)
+		if p.tenant != "" {
+			logrus.Errorf("tenant %q: %v", p.tenant, err)
+		} else {
+			logrus.Error(err)
+		}
 	}
 
 	if len(events) == 0 && len(failures) > 0 {

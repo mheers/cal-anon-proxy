@@ -1,15 +1,32 @@
 package pages
 
 import (
+	"strings"
+
 	"github.com/maddalax/htmgo/framework/h"
 )
 
 func IndexPage(ctx *h.RequestContext) *h.Page {
+	return TenantIndexPage(ctx, "", "/events.json")
+}
+
+// TenantIndexPage renders the calendar WebUI for one tenant. eventsFeedURL is
+// the tenant-scoped JSON feed (e.g. "/marcel/events.json"); an empty tenant
+// name keeps the legacy "Public Calendar" title.
+func TenantIndexPage(ctx *h.RequestContext, tenant, eventsFeedURL string) *h.Page {
 	// FullCalendar v7: CSS was split into skeleton + theme + palette, the JS
 	// bundle moved to all/global(.min).js, and the theme ships as its own
 	// script that self-registers via FullCalendar.Shared.
 	const fcVersion = "7.0.2"
-	return RootPage(
+	title := "Public Calendar"
+	if tenant != "" {
+		title = "Public Calendar - " + tenant
+	}
+	// The feed URL is server-generated from a validated tenant name
+	// ([a-z0-9-]), so single-quote injection is not possible here.
+	script := strings.Replace(calendarScript, "'/events.json'", "'"+eventsFeedURL+"'", 1)
+	return RootPageWithTitle(
+		title,
 		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@"+fcVersion+"/skeleton.css", "stylesheet"),
 		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@"+fcVersion+"/themes/classic/theme.css", "stylesheet"),
 		h.Link("https://cdn.jsdelivr.net/npm/fullcalendar@"+fcVersion+"/themes/classic/palette.css", "stylesheet"),
@@ -39,7 +56,11 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 			h.Id("calendar"),
 		),
 
-		h.UnsafeRawScript(`
+		h.UnsafeRawScript(script),
+	)
+}
+
+const calendarScript = `
 			var initialTimeZone = 'local';
 			var timeZoneSelectorEl = document.getElementById('time-zone-selector');
 			var loadingEl = document.getElementById('loading');
@@ -83,6 +104,4 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 					calendar.setOption('timeZone', this.value);
 				});
 			});
-		`),
-	)
-}
+		`

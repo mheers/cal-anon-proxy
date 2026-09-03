@@ -9,6 +9,10 @@ import (
 type CalProxy struct {
 	config *Config
 
+	// tenant is the owning tenant's name ("" in single-tenant mode), used
+	// only to scope log lines. Set by buildTenantRuntime.
+	tenant string
+
 	// lastKnownGood caches the most recent successful download per source
 	// URL. When a source fails transiently, its cached events keep being
 	// served instead of freezing ALL sources at their previous state (the
